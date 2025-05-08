@@ -25,8 +25,16 @@ const model = genAI.getGenerativeModel({
     // ],
 });
 // -----------------------------
-
-
+const hoje = new Date();
+const opcoesData = {
+     weekday: 'long', 
+     year: 'numeric', 
+     month: 'long', 
+     day: 'numeric',
+     timeZone: 'America/Sao_Paulo' };
+const dataFormatada = hoje.toLocaleDateString('pt-BR', opcoesData);
+const opcoesHora = { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo', hour12: false }; // Usando formato 24h
+const horaFormatada = hoje.toLocaleTimeString('pt-BR', opcoesHora);
 // Middlewares do Express
 app.use(cors()); // <<<<<< ADICIONE ESTA LINHA AQUI
 app.use(express.json());
@@ -36,7 +44,11 @@ app.use(express.urlencoded({ extended: true }));
 async function getGeminiResponse(userMessage) {
     try {
         // Define um prompt base para dar contexto ao Gemini (opcional, mas recomendado)
-        const prompt = `Você é um assistente prestativo e amigável chamado ChatBot. Responda à seguinte mensagem do usuário de forma concisa e útil:\n\nUsuário: ${userMessage}\nAssistente:`;
+        const prompt = `
+        A data de hoje é: ${dataFormatada}.
+        AS horas atuais são: ${horaFormatada}.
+        Você é um assistente prestativo e amigável chamado ChatBot.
+        Responda à seguinte mensagem do usuário de forma concisa e útil:\n\nUsuário: ${userMessage}\n`;
 
         console.log("Enviando para Gemini:", prompt); // Log para depuração
 
