@@ -4,7 +4,7 @@ const sendButton = document.getElementById('send-button');
 const chatContainer = document.getElementById('chat-container'); // Para scroll
 
 // URL do seu backend Node.js (ajuste a porta se necessário)
-const apiUrl = 'http://localhost:3000/chat';
+const apiUrl = 'https://chatbot-liau.onrender.com/';
 
 // --- Funções Auxiliares ---
 
