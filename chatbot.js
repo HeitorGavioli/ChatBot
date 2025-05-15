@@ -1,105 +1,189 @@
-// 1. Carregar variáveis de ambiente ANTES de tudo
+// chatbot.js
 require('dotenv').config();
 
 const express = require('express');
-const cors = require('cors'); // Adicione esta linha
+const cors = require('cors');
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const { obterClima } = require('./WeatherAPI'); // Certifique-se que este arquivo existe e funciona
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000; // Use a porta do ambiente ou 3000
 
 // --- Configuração do Gemini ---
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
     console.error("Erro: Chave de API do Gemini não encontrada. Verifique seu arquivo .env e a variável GEMINI_API_KEY.");
-    process.exit(1); // Encerra se a chave não for encontrada
+    process.exit(1);
 }
 
 const genAI = new GoogleGenerativeAI(apiKey);
+
+// Definição da Ferramenta (Tool)
+const tools = [{
+    functionDeclarations: [{
+        name: "obter_clima_atual", // Nome da função como o Gemini a chamará
+        description: "Obtém o clima atual para uma cidade específica. Use apenas se o usuário perguntar explicitamente sobre o clima.",
+        parameters: {
+            type: "OBJECT",
+            properties: {
+                cidade: { // Parâmetro esperado pela função
+                    type: "STRING",
+                    description: "O nome da cidade para a qual obter o clima. Por exemplo: São Paulo, Londres, Tóquio."
+                }
+            },
+            required: ["cidade"] // Parâmetro obrigatório
+        }
+    }]
+}];
+
 const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest", // Ou outro modelo como "gemini-pro"
+    model: "gemini-1.5-flash-latest", // Ou "gemini-pro" se preferir
+    tools: tools,
     // Opcional: Ajustes de segurança (veja a documentação do Google AI)
-    // safetySettings: [
-    //   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-    //   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-    // ],
+    safetySettings: [
+      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+    ],
+    // Opcional: Configurações de geração
+    // generationConfig: {
+    //   temperature: 0.7,
+    //   topP: 0.95,
+    //   topK: 40
+    // }
 });
 // -----------------------------
-const hoje = new Date();
-const opcoesData = {
-     weekday: 'long', 
-     year: 'numeric', 
-     month: 'long', 
-     day: 'numeric',
-     timeZone: 'America/Sao_Paulo' };
-const dataFormatada = hoje.toLocaleDateString('pt-BR', opcoesData);
-const opcoesHora = { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo', hour12: false }; // Usando formato 24h
-const horaFormatada = hoje.toLocaleTimeString('pt-BR', opcoesHora);
+
 // Middlewares do Express
-app.use(cors()); // <<<<<< ADICIONE ESTA LINHA AQUI
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- Função para obter resposta do Gemini ---
-async function getGeminiResponse(userMessage) {
-    try {
-        // Define um prompt base para dar contexto ao Gemini (opcional, mas recomendado)
-        const prompt = `
-        A data de hoje é: ${dataFormatada}.
-        AS horas atuais são: ${horaFormatada}.
-        Você é um assistente prestativo e amigável chamado ChatBot.
-        Responda à seguinte mensagem do usuário de forma concisa e útil:\n\nUsuário: ${userMessage}\n`;
+// --- Função para lidar com a conversa e Function Calling ---
+async function handleChatWithGemini(userMessage, chatHistory = []) {
+    console.log(`[handleChatWithGemini] Iniciando chat. Histórico: ${chatHistory.length} turnos.`);
+    const chat = model.startChat({
+        history: chatHistory,
+        // tools já estão no 'model'
+    });
 
-        console.log("Enviando para Gemini:", prompt); // Log para depuração
+    console.log(`[handleChatWithGemini] Enviando mensagem do usuário: "${userMessage}"`);
+    let result = await chat.sendMessage(userMessage);
 
-        // const result = await model.generateContent(userMessage); // Forma mais simples
-        const result = await model.generateContent(prompt); // Usando o prompt com contexto
-        const response = await result.response;
-        const text = response.text();
-
-        console.log("Resposta do Gemini:", text); // Log para depuração
-        return text;
-
-    } catch (error) {
-        console.error("Erro ao chamar a API do Gemini:", error);
-
-        // Verifica se o erro é devido a bloqueio de segurança
-        if (error.message.includes('SAFETY')) {
-             return "Desculpe, não posso responder a isso devido às políticas de segurança.";
+    while (true) {
+        // Verifica se a resposta está bloqueada por segurança ANTES de tentar acessar parts
+        if (result.response.promptFeedback && result.response.promptFeedback.blockReason) {
+            console.warn(`[handleChatWithGemini] Resposta bloqueada por segurança: ${result.response.promptFeedback.blockReason}`, result.response.promptFeedback);
+            return `Desculpe, não posso processar essa solicitação devido a políticas de segurança (${result.response.promptFeedback.blockReason}).`;
         }
-        // Outros erros
-        return "Desculpe, ocorreu um erro ao tentar processar sua mensagem. Tente novamente mais tarde.";
+
+        if (!result.response.candidates || result.response.candidates.length === 0 ||
+            !result.response.candidates[0].content || !result.response.candidates[0].content.parts ||
+            result.response.candidates[0].content.parts.length === 0) {
+            console.error("[handleChatWithGemini] Resposta do Gemini não contém 'parts' válidas:", JSON.stringify(result.response, null, 2));
+            return "Desculpe, recebi uma resposta inesperada do assistente.";
+        }
+
+        const responsePart = result.response.candidates[0].content.parts[0];
+
+        if (responsePart.functionCall) {
+            const fc = responsePart.functionCall;
+            console.log(`[handleChatWithGemini] 🛠️ Gemini solicitou chamada de função: ${fc.name}`);
+            console.log(`  Argumentos: ${JSON.stringify(fc.args)}`);
+
+            let functionExecutionResult;
+
+           if (fc.name === "obter_clima_atual") {
+                try {
+                    const cidadeParaClima = fc.args.cidade;
+                    if (!cidadeParaClima) {
+                        // ...
+                        functionExecutionResult = { tool_output: { error: "Parâmetro 'cidade' não fornecido pela IA." }}; // Envolver em tool_output
+                    } else {
+                        const weatherResult = await obterClima(cidadeParaClima); // Sua função de WeatherAPI.js
+                        console.log(`[handleChatWithGemini] Resultado de obterClima para "${cidadeParaClima}":`, weatherResult);
+
+                        if (weatherResult.error) { // <<<< VERIFICA SE HOUVE ERRO
+                            functionExecutionResult = { tool_output: { error: weatherResult.error }};
+                        } else {
+                            // Se não houve erro, weatherResult contém os dados do clima
+                            // O Gemini espera que o 'response' da função seja um objeto JSON
+                            // Os dados já estão bem estruturados
+                            functionExecutionResult = { tool_output: weatherResult };
+                        }
+                    }
+                } catch (error) { // Captura exceções inesperadas de obterClima
+                    console.error("[handleChatWithGemini] Exceção ao executar a função de clima:", error);
+                    functionExecutionResult = { tool_output: { error: `Exceção ao buscar clima: ${error.message}` }};
+                }
+            } else {
+                // ...
+            }
+
+            console.log("[handleChatWithGemini] 🔄 Enviando resultado da função para o Gemini...", JSON.stringify(functionExecutionResult, null, 2));
+            result = await chat.sendMessage([
+                {
+                    functionResponse: {
+                        name: fc.name,
+                        // O SDK espera um objeto para 'response'.
+                        // E o conteúdo desse objeto (o resultado da sua ferramenta) também deve ser um objeto.
+                        response: functionExecutionResult, // functionExecutionResult já é { tool_output: ... }
+                    },
+                },
+            ]);
+            // Continue o loop para ver se o Gemini responde com texto ou outra chamada de função
+
+        } else if (responsePart.text) {
+            const finalText = responsePart.text;
+            console.log(`[handleChatWithGemini] 🤖 Gemini respondeu com texto: "${finalText}"`);
+            // Atualiza o histórico para a próxima interação (opcional, mas bom para contexto)
+            // chatHistory.push({ role: "user", parts: [{ text: userMessage }] });
+            // chatHistory.push({ role: "model", parts: [{ text: finalText }] });
+            return finalText; // Resposta final
+        } else {
+            // Caso inesperado ou se a resposta não tiver nem functionCall nem text
+            console.error("[handleChatWithGemini] Resposta do Gemini sem functionCall ou text:", JSON.stringify(result.response, null, 2));
+            return "Desculpe, tive um problema para processar a resposta do assistente.";
+        }
     }
 }
 // ----------------------------------------
 
 // Rota principal (opcional)
 app.get('/', (req, res) => {
-    res.send('Servidor do Chatbot (com Gemini) está no ar! Envie POST para /chat.');
+    res.send('Servidor do Chatbot (com Gemini e Function Calling) está no ar! Envie POST para /chat.');
 });
 
 // Rota para receber mensagens do chatbot (via POST)
-// Tornamos a função do handler async para poder usar await
 app.post('/chat', async (req, res) => {
     const mensagemUsuario = req.body.mensagem;
 
-    console.log('Mensagem recebida do frontend:', mensagemUsuario);
+    console.log('[API /chat] Mensagem recebida do frontend:', mensagemUsuario);
 
     if (!mensagemUsuario) {
         return res.status(400).json({ erro: 'Nenhuma mensagem fornecida no corpo da requisição (campo "mensagem").' });
     }
 
-    // Chama a função que usa o Gemini
-    const respostaBot = await getGeminiResponse(mensagemUsuario);
-
-    // Envia a resposta de volta como JSON
-    res.json({ resposta: respostaBot });
+    try {
+        // Para um chatbot real com estado, você gerenciaria o histórico de chat por sessão/usuário
+        // Por simplicidade, este exemplo não mantém histórico entre chamadas à API /chat
+        const respostaBot = await handleChatWithGemini(mensagemUsuario /*, históricoSeTiver */);
+        res.json({ resposta: respostaBot });
+    } catch (e) {
+        console.error("[API /chat] Erro inesperado na rota:", e);
+        // Verifique se o erro é um objeto de erro da API Gemini
+        if (e.response && e.response.promptFeedback && e.response.promptFeedback.blockReason) {
+            return res.status(400).json({ resposta: `Desculpe, sua solicitação foi bloqueada: ${e.response.promptFeedback.blockReason}`});
+        }
+        if (e.message && (e.message.includes('SAFETY') || e.message.includes('blocked'))) {
+             return res.status(400).json({ resposta: "Desculpe, não posso responder a isso devido às políticas de segurança."});
+        }
+        res.status(500).json({ erro: "Ocorreu um erro interno no servidor ao processar sua mensagem."});
+    }
 });
 
 // Inicia o servidor
 app.listen(port, () => {
     console.log(`🤖 Servidor do Chatbot com Gemini rodando em http://localhost:${port}`);
-    if (!apiKey) {
-        console.warn("AVISO: Chave de API do Gemini não configurada. O bot não funcionará corretamente.");
-    }
 });
