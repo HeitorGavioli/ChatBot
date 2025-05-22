@@ -105,12 +105,12 @@ async function handleChatWithGemini(userMessage, chatHistory = []) {
                         console.log(`[handleChatWithGemini] Resultado de obterClima para "${cidadeParaClima}":`, weatherResult);
 
                         if (weatherResult.error) { // <<<< VERIFICA SE HOUVE ERRO
-                            functionExecutionResult = { tool_output: { error: weatherResult.error }};
+                            functionExecutionResult = { error: weatherResult.error };
                         } else {
                             // Se não houve erro, weatherResult contém os dados do clima
                             // O Gemini espera que o 'response' da função seja um objeto JSON
                             // Os dados já estão bem estruturados
-                            functionExecutionResult = { tool_output: weatherResult };
+                            functionExecutionResult = weatherResult;
                         }
                     }
                 } catch (error) { // Captura exceções inesperadas de obterClima
@@ -122,16 +122,14 @@ async function handleChatWithGemini(userMessage, chatHistory = []) {
             }
 
             console.log("[handleChatWithGemini] 🔄 Enviando resultado da função para o Gemini...", JSON.stringify(functionExecutionResult, null, 2));
-            result = await chat.sendMessage([
-                {
-                    functionResponse: {
-                        name: fc.name,
-                        // O SDK espera um objeto para 'response'.
-                        // E o conteúdo desse objeto (o resultado da sua ferramenta) também deve ser um objeto.
-                        response: functionExecutionResult, // functionExecutionResult já é { tool_output: ... }
-                    },
-                },
-            ]);
+            result = await chat.sendMessage({
+                functionResponse: {
+                    name: fc.name,
+                    response: {
+                        content: functionExecutionResult
+                    }
+                }
+            });
             // Continue o loop para ver se o Gemini responde com texto ou outra chamada de função
 
         } else if (responsePart.text) {
@@ -158,18 +156,32 @@ app.get('/', (req, res) => {
 // Rota para receber mensagens do chatbot (via POST)
 app.post('/chat', async (req, res) => {
     const mensagemUsuario = req.body.mensagem;
+    // Receber o histórico do frontend (se existir)
+    const historico = req.body.historico || [];
 
     console.log('[API /chat] Mensagem recebida do frontend:', mensagemUsuario);
+    console.log('[API /chat] Histórico recebido:', historico.length, 'mensagens');
 
     if (!mensagemUsuario) {
         return res.status(400).json({ erro: 'Nenhuma mensagem fornecida no corpo da requisição (campo "mensagem").' });
     }
 
     try {
-        // Para um chatbot real com estado, você gerenciaria o histórico de chat por sessão/usuário
-        // Por simplicidade, este exemplo não mantém histórico entre chamadas à API /chat
-        const respostaBot = await handleChatWithGemini(mensagemUsuario /*, históricoSeTiver */);
-        res.json({ resposta: respostaBot });
+        // Passa o histórico para a função de chat
+        const respostaBot = await handleChatWithGemini(mensagemUsuario, historico);
+        
+        // Atualiza o histórico para retornar ao frontend
+        const historicoAtualizado = [...historico];
+        // Adiciona a mensagem do usuário ao histórico
+        historicoAtualizado.push({ role: "user", parts: [{ text: mensagemUsuario }] });
+        // Adiciona a resposta do bot ao histórico
+        historicoAtualizado.push({ role: "model", parts: [{ text: respostaBot }] });
+        
+        // Retorna a resposta e o histórico atualizado
+        res.json({ 
+            resposta: respostaBot,
+            historico: historicoAtualizado
+        });
     } catch (e) {
         console.error("[API /chat] Erro inesperado na rota:", e);
         // Verifique se o erro é um objeto de erro da API Gemini
@@ -179,7 +191,8 @@ app.post('/chat', async (req, res) => {
         if (e.message && (e.message.includes('SAFETY') || e.message.includes('blocked'))) {
              return res.status(400).json({ resposta: "Desculpe, não posso responder a isso devido às políticas de segurança."});
         }
-        res.status(500).json({ erro: "Ocorreu um erro interno no servidor ao processar sua mensagem."});
+        // Garantir que sempre retorne uma resposta, mesmo em caso de erro
+        return res.status(500).json({ resposta: `Erro interno: ${e.message || "Erro desconhecido"}` });
     }
 });
 
