@@ -4,7 +4,7 @@ const sendButton = document.getElementById('send-button');
 const chatContainer = document.getElementById('chat-container'); // Para scroll
 
 // URL do seu backend Node.js (ajuste a porta se necessário)
-const apiUrl = 'https://chatbot-liau.onrender.com/chat';
+const apiUrl = 'http://localhost:3000/chat';
 
 // --- Funções Auxiliares ---
 
@@ -30,6 +30,9 @@ function addMessageToLog(message, sender) {
     chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+// Variável para armazenar o histórico da conversa
+let chatHistory = [];
+
 // Função para enviar a mensagem para o backend
 async function sendMessageToBackend(message) {
     // Mostra a mensagem do usuário imediatamente
@@ -43,7 +46,10 @@ async function sendMessageToBackend(message) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ mensagem: message }), // Envia no formato esperado pelo backend
+            body: JSON.stringify({ 
+                mensagem: message,
+                historico: chatHistory // Envia o histórico atual junto com a mensagem
+            }),
         });
 
         if (!response.ok) {
@@ -52,6 +58,12 @@ async function sendMessageToBackend(message) {
         }
 
         const data = await response.json();
+
+        // Atualiza o histórico com o retornado pelo backend
+        if (data.historico) {
+            chatHistory = data.historico;
+            console.log('Histórico atualizado:', chatHistory.length, 'mensagens');
+        }
 
         // Mostra a resposta do bot
         addMessageToLog(data.resposta, 'bot');
