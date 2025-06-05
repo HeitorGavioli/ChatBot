@@ -16,12 +16,7 @@ body {
 /* --- Chat Container --- */
 #chat-container {
     background-color: #fff;
-    /* Slightly larger radius */
-    border-radius: 12px;
-    /* Softer shadow */
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     width: 90%;
-    max-width: 500px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
