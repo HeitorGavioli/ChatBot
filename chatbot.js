@@ -104,7 +104,7 @@ app.post('/api/ranking/registrar-acesso-bot', (req, res) => {
     } else {
         dadosRankingVitrine.push({
             botId: botId,
-            nomeBot: nomeBot,
+            nomeBot: BotHeitor,
             contagem: 1,
             ultimoAcesso: acessoEm,
             usuarioId: usuarioId || 'anonimo'
