@@ -69,9 +69,9 @@ app.post('/api/log-connection', async (req, res) => {
 
     // ATUALIZAÇÃO: Adicionar o novo campo ao objeto a ser salvo
     const logEntry = {
-        _id: nomeBot, // NOVO CAMPO
         col_data: dataFormatada,
         col_hora: horaFormatada,
+        col_nome_bot:BotHeitor,
         col_IP: ip,
         col_acao: acao
     };
