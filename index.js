@@ -1,60 +1,36 @@
-// script.js
-
 const chatLog = document.getElementById('chat-log');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 
-// URL base do seu backend Node.js (ajuste a porta se necessário)
+// URL base do seu backend Node.js
 const backendUrl = 'http://localhost:3000'; 
 const apiUrl = `${backendUrl}/chat`;
 
-// NOME DO SEU BOT (defina aqui)
-const NOME_DO_BOT = "IFCODE SuperBot"; // <-- Altere aqui se quiser
+// Configurações do Bot
+const NOME_DO_BOT = "IFCODE SuperBot";
+const BOT_ID = "chatbotPrincipalIFCODE";
 let currentSessionId = `sessao_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 let chatStartTime = new Date();
+let chatHistory = [];
 
-// ... (código das funções addMessageToLog e sendMessageToBackend permanece o mesmo) ...
+// Função para adicionar mensagem ao chat
 function addMessageToLog(message, sender) {
-    const messageElement = document.createElement('p');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message', `${sender}-message`);
     messageElement.textContent = message;
-
-    // Adiciona classe CSS baseada em quem enviou (user, bot, error)
-    if (sender === 'user') {
-        messageElement.classList.add('user-message');
-    } else if (sender === 'bot') {
-        messageElement.classList.add('bot-message');
-    } else if (sender === 'error') {
-        messageElement.classList.add('error-message');
-    } else {
-        messageElement.classList.add('bot-message'); // Padrão para bot
-    }
-
     chatLog.appendChild(messageElement);
-
-    // Auto-scroll para a última mensagem
     chatLog.scrollTop = chatLog.scrollHeight;
 }
 
-// Variável para armazenar o histórico da conversa
-let chatHistory = [];
-
-// Função para enviar a mensagem para o backend
-async function sendMessageToBackend(message) {
-    // Mostra a mensagem do usuário imediatamente
-    addMessageToLog(message, 'user');
-    userInput.value = ''; // Limpa o input
-    sendButton.disabled = true; // Desabilita o botão enquanto espera a resposta
-
+// Função para salvar o histórico da sessão
+async function salvarHistoricoSessao() {
     try {
-        // First await the history saving
-        await salvarHistoricoSessao(currentSessionId, "chatbotPrincipalIFCODE", chatStartTime, new Date(), chatHistory);
-        
         const payload = {
-            sessionId: currentSessionId, // Using the variable that appears to be in scope
-            botId: "chatbotPrincipalIFCODE", // Using the same ID as above
-            startTime: chatStartTime.toISOString(), // Using the variable that appears to be in scope
+            sessionId: currentSessionId,
+            botId: BOT_ID,
+            startTime: chatStartTime.toISOString(),
             endTime: new Date().toISOString(),
-            messages: chatHistory // Using the variable that appears to be in scope
+            messages: chatHistory
         };
 
         const response = await fetch(`${backendUrl}/api/chat/salvar-historico`, {
@@ -64,32 +40,102 @@ async function sendMessageToBackend(message) {
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error("Falha ao salvar histórico:", errorData.error || response.statusText);
-        } else {
-            const result = await response.json();
-            console.log("Histórico de sessão enviado:", result.message);
+            throw new Error('Falha ao salvar histórico');
         }
+        
+        const result = await response.json();
+        console.log("Histórico salvo:", result.message);
+        return result;
     } catch (error) {
-        console.error("Erro ao enviar histórico de sessão:", error);
-    } finally {
-        sendButton.disabled = false; // Reabilita o botão
-        userInput.focus(); // Coloca o foco de volta no input
+        console.error("Erro ao salvar histórico:", error);
+        throw error;
     }
 }
 
+// Função principal para enviar mensagem ao backend
+async function sendMessageToBackend(message) {
+    // Adiciona mensagem do usuário ao chat e ao histórico
+    addMessageToLog(message, 'user');
+    chatHistory.push({
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+    });
 
+    userInput.value = '';
+    sendButton.disabled = true;
+
+    try {
+        // 1. Envia mensagem para o endpoint do chatbot
+        const chatResponse = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mensagem: message })
+        });
+
+        if (!chatResponse.ok) {
+            throw new Error(`Erro no servidor: ${chatResponse.status}`);
+        }
+
+        const data = await chatResponse.json();
+        
+        // 2. Adiciona resposta do bot ao chat e ao histórico
+        addMessageToLog(data.resposta, 'bot');
+        chatHistory.push({
+            role: 'bot',
+            content: data.resposta,
+            timestamp: new Date().toISOString()
+        });
+
+        // 3. Salva o histórico atualizado
+        await salvarHistoricoSessao();
+
+    } catch (error) {
+        console.error('Erro ao processar mensagem:', error);
+        addMessageToLog('Desculpe, ocorreu um erro ao processar sua mensagem.', 'error');
+    } finally {
+        sendButton.disabled = false;
+        userInput.focus();
+    }
+}
+
+// Função para registrar ações iniciais
+async function registrarAcoesIniciais() {
+    try {
+        // 1. Registrar acesso para ranking
+        const rankingResponse = await fetch(`${backendUrl}/api/ranking/registrar-acesso-bot`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                botId: BOT_ID,
+                nomeBot: NOME_DO_BOT,
+                timestampAcesso: new Date().toISOString()
+            })
+        });
+
+        if (!rankingResponse.ok) {
+            console.error("Falha no ranking:", await rankingResponse.text());
+        }
+
+        // 2. Mensagem de boas-vindas
+        addMessageToLoad(`Olá! Eu sou o ${NOME_DO_BOT}. Como posso te ajudar hoje?`, 'bot');
+
+    } catch (error) {
+        console.error("Erro nos registros iniciais:", error);
+    }
+}
+
+// Event Listeners
 sendButton.addEventListener('click', () => {
     const message = userInput.value.trim();
-    if (message) { // Só envia se não estiver vazio
+    if (message) {
         sendMessageToBackend(message);
     }
 });
 
-// Enviar mensagem ao pressionar Enter no input
 userInput.addEventListener('keypress', (event) => {
     if (event.key === 'Enter') {
-        event.preventDefault(); // Impede o comportamento padrão do Enter (ex: submit de formulário)
+        event.preventDefault();
         const message = userInput.value.trim();
         if (message) {
             sendMessageToBackend(message);
@@ -97,64 +143,8 @@ userInput.addEventListener('keypress', (event) => {
     }
 });
 
-
-// --- NOVAS FUNÇÕES DE LOG E RANKING (ATUALIZADAS) ---
-
-// Função para registrar o acesso inicial e para o ranking
-async function registrarAcoesIniciais() {
-    console.log("Iniciando registros de acesso...");
-    try {
-        // 1. Obter informações do usuário (IP)
-        const userInfoResponse = await fetch(`${backendUrl}/api/user-info`);
-        if (!userInfoResponse.ok) {
-            throw new Error('Falha ao obter info do usuário.');
-        }
-        const userInfo = await userInfoResponse.json();
-        console.log("Info do usuário obtida:", userInfo);
-
-        // 2. Registrar o log de conexão no MongoDB (ATUALIZADO)
-        const logData = {
-            ip: userInfo.ip,
-            acao: "acesso_inicial_chatbot",
-            nomeBot: NOME_DO_BOT // ATUALIZAÇÃO: Enviando o nome do bot
-        };
-        const logResponse = await fetch(`${backendUrl}/api/log-connection`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(logData)
-        });
-        if (!logResponse.ok) {
-            console.error("Falha ao registrar log de conexão:", await logResponse.text());
-        } else {
-            console.log("Log de conexão registrado com sucesso.");
-        }
-
-        // 3. Registrar o acesso para o sistema de ranking
-        const dataRanking = {
-            botId: "chatbotPrincipalIFCODE",
-            nomeBot: NOME_DO_BOT, // Usando a mesma variável para consistência
-            timestampAcesso: new Date().toISOString()
-        };
-        const rankingResponse = await fetch(`${backendUrl}/api/ranking/registrar-acesso-bot`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dataRanking)
-        });
-
-        if (!rankingResponse.ok) {
-            console.error("Falha ao registrar acesso para ranking:", await rankingResponse.text());
-        } else {
-            const result = await rankingResponse.json();
-            console.log("Registro de ranking enviado:", result.message);
-        }
-
-    } catch (error) {
-        console.error("Erro durante os registros iniciais:", error);
-    }
-}
-
-// --- Inicialização ---
-userInput.focus(); // Coloca o foco no input ao carregar a página
-window.addEventListener('load', registrarAcoesIniciais);
-
-// ... (código dos event listeners e outras funções) ...
+// Inicialização
+window.addEventListener('load', () => {
+    userInput.focus();
+    registrarAcoesIniciais();
+});
