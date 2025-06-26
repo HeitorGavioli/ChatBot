@@ -3,7 +3,7 @@ const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 
 // URL base do seu backend Node.js
-const backendUrl = 'http://localhost:3000'; 
+const backendUrl = 'https://chatbot-liau.onrender.com/'; 
 const apiUrl = `${backendUrl}/chat`;
 
 // Configurações do Bot
