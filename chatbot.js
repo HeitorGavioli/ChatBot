@@ -419,11 +419,6 @@ app.post('/chat', async (req, res) => {
 });
 
 // Inicia o servidor
-app.listen(port, () => {
-    console.log(`🤖 Servidor do Chatbot com Gemini rodando em http://localhost:${port}`);
-});
-
-// Inicia o servidor
 connectDB().then(() => {
     app.listen(port, () => {
         console.log(`🤖 Servidor do Chatbot com Gemini rodando em http://localhost:${port}`);
