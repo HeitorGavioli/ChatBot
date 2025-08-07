@@ -3,15 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chatbot Simples</title>
+    <title>JorgeBot</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
+    <nav id="navbar">
+        <a href="historico.html">Histórico de Conversas</a>
+        <a href="sobrebot.html">Sobre o Criador</a>
+    </nav>
     <div id="chat-container">
-        <h1>Meu Chatbot</h1>
+        <h1>JorgeBot</h1>
         <div id="chat-log">
             <!-- As mensagens do chat aparecerão aqui -->
-            <p class="bot-message">Olá! Digite sua mensagem abaixo.</p>
         </div>
         <div id="input-area">
             <input type="text" id="user-input" placeholder="Digite sua mensagem...">
@@ -21,7 +27,6 @@
             </svg></button>
         </div>
     </div>
-
-    <script src="script.js"></script>
+    <script src="index.js"></script>
 </body>
 </html>
