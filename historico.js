@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const visualizacaoConversaEl = document.getElementById('visualizacao-conversa');
     
     // URL do backend. Não precisa mudar para localhost.
-    const historicosUrl = '/api/chat/historicos';
+    const historicosUrl = 'https://chatbot-liau.onrender.com/api/chat/historicos';
 
     function exibirConversaDetalhada(mensagens) {
         visualizacaoConversaEl.innerHTML = ''; // Limpa a visualização
@@ -56,4 +56,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     carregarHistoricos();
+
 });
