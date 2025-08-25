@@ -108,7 +108,7 @@ async function handleChatWithTools(userMessage, chatHistory = []) {
 // --- ROTAS DA API ---
 
 // --- MUDANÇA 4: A rota /chat agora usa o histórico ---
-app.post('https://chatbot-liau.onrender.com/chat', async (req, res) => {
+app.post('/chat', async (req, res) => {
     // Extrai a mensagem E o histórico do corpo da requisição
     const { mensagem, historico } = req.body;
 
@@ -129,7 +129,7 @@ app.post('https://chatbot-liau.onrender.com/chat', async (req, res) => {
 // Rota para salvar o histórico (sem alterações)
 // chatbot.js -> Rota POST /api/chat/salvar-historico
 
-app.post('https://chatbot-liau.onrender.com/api/chat/salvar-historico', async (req, res) => {
+app.post('/api/chat/salvar-historico', async (req, res) => {
     const { sessionId, botId, startTime, endTime, messages } = req.body;
     if (!sessionId || !messages) return res.status(400).json({ message: "sessionId e messages são obrigatórios." });
 
@@ -166,7 +166,7 @@ app.post('https://chatbot-liau.onrender.com/api/chat/salvar-historico', async (r
 // ... (código das rotas de gerenciamento de histórico) ...
 
 // Rota para LER todos os históricos
-app.get('https://chatbot-liau.onrender.com/api/chat/historicos', async (req, res) => {
+app.get('/api/chat/historicos', async (req, res) => {
     try {
         const historicos = await ChatHistory.find({})
             .sort({ startTime: -1 })
@@ -179,7 +179,7 @@ app.get('https://chatbot-liau.onrender.com/api/chat/historicos', async (req, res
 });
 
 // Rota DELETE /api/chat/historicos/:id
-app.delete('https://chatbot-liau.onrender.com/api/chat/historicos/:id', async (req, res) => {
+app.delete('/api/chat/historicos/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const result = await ChatHistory.findByIdAndDelete(id);
@@ -191,7 +191,7 @@ app.delete('https://chatbot-liau.onrender.com/api/chat/historicos/:id', async (r
 });
 
 // Rota POST /api/chat/historicos/:id/gerar-titulo
-app.post('https://chatbot-liau.onrender.com/api/chat/historicos/:id/gerar-titulo', async (req, res) => {
+app.post('/api/chat/historicos/:id/gerar-titulo', async (req, res) => {
     try {
         const { id } = req.params;
         const historico = await ChatHistory.findById(id);
@@ -211,7 +211,7 @@ app.post('https://chatbot-liau.onrender.com/api/chat/historicos/:id/gerar-titulo
 });
 
 // Rota PUT /api/chat/historicos/:id
-app.put('https://chatbot-liau.onrender.com/api/chat/historicos/:id', async (req, res) => {
+app.put('/api/chat/historicos/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { title } = req.body;
@@ -231,4 +231,5 @@ app.put('https://chatbot-liau.onrender.com/api/chat/historicos/:id', async (req,
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
 
