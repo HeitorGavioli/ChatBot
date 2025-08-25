@@ -6,8 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendButton = document.getElementById('send-button');
 
     // URLs do backend.
-    const chatUrl = '/chat'; // Rota de chat principal
-    const saveHistoryUrl = '/api/chat/salvar-historico';
+    const chatUrl = 'https://chatbot-liau.onrender.com//chat'; // Rota de chat principal
+    const saveHistoryUrl = 'https://chatbot-liau.onrender.com//api/chat/salvar-historico';
 
     // Configurações da sessão
     const BOT_ID = "jorgebot_v1";
@@ -115,3 +115,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     iniciarChat();
 });
+
