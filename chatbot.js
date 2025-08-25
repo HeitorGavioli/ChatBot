@@ -70,26 +70,37 @@ const model = genAI.getGenerativeModel({
 });
 
 // --- MUDANÇA 3: Atualizar a função de chat para lidar com as ferramentas ---
+// chatbot.js -> Substitua esta função inteira
+
 async function handleChatWithTools(userMessage, chatHistory = []) {
-    // Inicia o chat com o histórico recebido
-    const chat = model.startChat({ history: chatHistory });
+    
+    // --- NOVA LÓGICA DE FORMATAÇÃO ---
+    // Converte o histórico recebido do frontend para o formato que a API espera.
+    const formattedHistory = chatHistory.map(item => {
+        // Garante que o role 'bot' seja convertido para 'model'
+        const role = item.role === 'bot' ? 'model' : item.role;
+        return {
+            role: role,
+            parts: [{ text: item.content }] // Coloca o conteúdo dentro da estrutura 'parts'
+        };
+    });
+
+    // Inicia o chat com o histórico agora formatado corretamente
+    const chat = model.startChat({ history: formattedHistory });
     const result = await chat.sendMessage(userMessage);
 
     const call = result.response.functionCalls()?.[0];
     
     if (call) {
         let apiResponse;
-        // Verifica qual função foi chamada e a executa
         if (call.name === 'obter_clima_atual') {
             apiResponse = await obterClima(call.args.cidade);
         } else if (call.name === 'obter_horario_atual') {
             apiResponse = obterHorarioAtual();
         } else {
-            // Se a função não for reconhecida, informa o modelo
             apiResponse = { error: `Função desconhecida: ${call.name}` };
         }
 
-        // Envia o resultado da função de volta para o modelo
         const result2 = await chat.sendMessage([{
             functionResponse: {
                 name: call.name,
@@ -97,14 +108,11 @@ async function handleChatWithTools(userMessage, chatHistory = []) {
             }
         }]);
 
-        // Retorna a resposta final do modelo após processar o resultado da função
         return result2.response.text();
     }
     
-    // Se nenhuma função foi chamada, apenas retorna o texto da resposta
     return result.response.text();
 }
-
 // --- ROTAS DA API ---
 
 // --- MUDANÇA 4: A rota /chat agora usa o histórico ---
@@ -238,6 +246,7 @@ app.put('/api/chat/historicos/:id', async (req, res) => {
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
 
 
 
