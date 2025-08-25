@@ -108,6 +108,8 @@ async function handleChatWithTools(userMessage, chatHistory = []) {
 // --- ROTAS DA API ---
 
 // --- MUDANÇA 4: A rota /chat agora usa o histórico ---
+// chatbot.js -> Substitua apenas a rota POST /chat
+
 app.post('/chat', async (req, res) => {
     // Extrai a mensagem E o histórico do corpo da requisição
     const { mensagem, historico } = req.body;
@@ -116,15 +118,20 @@ app.post('/chat', async (req, res) => {
         return res.status(400).json({ erro: 'Nenhuma mensagem fornecida.' });
     }
     try {
-        // Passa a mensagem e o histórico para a função de chat
+        // Validação simples para garantir que o histórico é um array
+        if (!Array.isArray(historico)) {
+            throw new Error("Formato de histórico inválido.");
+        }
+
+        // Passa a mensagem e o histórico diretamente para a função de chat
         const respostaBot = await handleChatWithTools(mensagem, historico);
         res.json({ resposta: respostaBot });
     } catch (e) {
-        console.error("[API /chat] Erro:", e);
+        // Log do erro específico no servidor para podermos ver no Render
+        console.error("[API /chat] Erro Detalhado:", e); 
         res.status(500).json({ erro: "Ocorreu um erro interno ao processar sua mensagem." });
     }
 });
-
 
 // Rota para salvar o histórico (sem alterações)
 // chatbot.js -> Rota POST /api/chat/salvar-historico
@@ -231,5 +238,6 @@ app.put('/api/chat/historicos/:id', async (req, res) => {
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
 
 
