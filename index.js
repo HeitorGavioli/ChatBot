@@ -101,5 +101,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     iniciarChat();
 
-
 });

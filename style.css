@@ -278,3 +278,62 @@ body {
     margin-top: 50px;
     color: rgba(255, 255, 255, 0.5);
 }
+/* --- ESTILOS ADICIONAIS PARA A LISTA DE HISTÓRICO --- */
+
+#lista-sessoes li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--input-bg-color);
+    padding: 12px 18px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.session-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.session-title {
+    font-weight: 500;
+    font-size: 1.05rem;
+}
+
+.session-date {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.session-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.action-btn:hover {
+    background-color: var(--bot-color);
+}
+
+.action-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
