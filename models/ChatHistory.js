@@ -28,6 +28,11 @@ const chatHistorySchema = new mongoose.Schema({
         type: String,
         required: true
     },
+      title: {
+        type: String,
+        default: 'Nova Conversa', // Um padrão mais amigável
+        trim: true
+    },
     startTime: {
         type: Date,
         required: true

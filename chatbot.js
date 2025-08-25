@@ -126,6 +126,85 @@ app.get('/api/chat/historicos', async (req, res) => {
     }
 });
 
+app.delete('/api/chat/historicos/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await ChatHistory.findByIdAndDelete(id);
+
+        if (!result) {
+            return res.status(404).json({ message: "Histórico não encontrado." });
+        }
+
+        res.status(200).json({ message: "Histórico excluído com sucesso." });
+    } catch (error) {
+        console.error("[API /historicos DELETE] Erro:", error);
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: "ID do histórico inválido." });
+        }
+        res.status(500).json({ message: "Erro ao excluir o histórico." });
+    }
+});
+
+// Lógica do Endpoint POST /api/chat/historicos/:id/gerar-titulo
+app.post('/api/chat/historicos/:id/gerar-titulo', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const historico = await ChatHistory.findById(id);
+
+        if (!historico) {
+            return res.status(404).json({ message: 'Histórico não encontrado.' });
+        }
+
+        // Formatar o histórico para enviar ao Gemini
+        const formattedHistory = historico.messages
+            .map(msg => `${msg.role === 'user' ? 'Usuário' : 'Bot'}: ${msg.content}`)
+            .join('\n');
+
+        const prompt = `Com base na seguinte conversa, sugira um título curto e conciso de no máximo 5 palavras:\n\n---\n${formattedHistory}\n---`;
+        
+        const titleGenModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const result = await titleGenModel.generateContent(prompt);
+        const suggestedTitle = result.response.text().trim();
+        
+        res.status(200).json({ suggestedTitle });
+
+    } catch (error) {
+        console.error("[API /gerar-titulo POST] Erro:", error);
+        res.status(500).json({ message: 'Erro ao gerar título com a IA.' });
+    }
+});
+
+// Lógica do Endpoint PUT /api/chat/historicos/:id (para salvar o título)
+app.put('/api/chat/historicos/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title } = req.body;
+
+        if (!title || typeof title !== 'string' || title.trim() === '') {
+            return res.status(400).json({ message: 'O título é obrigatório.' });
+        }
+
+        const updatedHistory = await ChatHistory.findByIdAndUpdate(
+            id,
+            { $set: { title: title.trim() } },
+            { new: true } // Retorna o documento atualizado
+        );
+
+        if (!updatedHistory) {
+            return res.status(404).json({ message: 'Histórico não encontrado.' });
+        }
+
+        res.status(200).json(updatedHistory);
+
+    } catch (error) {
+        console.error("[API /historicos PUT] Erro:", error);
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: "ID do histórico inválido." });
+        }
+        res.status(500).json({ message: 'Erro ao atualizar o título.' });
+    }
+});
+
 // --- Inicia o servidor ---
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
