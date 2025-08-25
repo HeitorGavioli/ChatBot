@@ -44,62 +44,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function sendMessageToBackend(message) {
-        addMessageToLog(message, 'user');
-        // Adiciona a mensagem do usuário ao histórico local
-        chatHistory.push({ role: 'user', content: message });
-        
-        userInput.value = '';
-        sendButton.disabled = true;
-        addMessageToLog("Digitando...", 'bot');
+async function sendMessageToBackend(message) {
+    addMessageToLog(message, 'user');
+    // Adiciona a mensagem do usuário ao histórico local.
+    // O histórico agora começa com a mensagem do usuário.
+    chatHistory.push({ role: 'user', content: message });
+    
+    userInput.value = '';
+    sendButton.disabled = true;
+    addMessageToLog("Digitando...", 'bot');
 
-        try {
-            // MUDANÇA CRUCIAL AQUI: Enviamos o histórico junto com a mensagem
-            const response = await fetch(chatUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    mensagem: message,
-                    historico: chatHistory.slice(0, -1) // Envia o histórico ANTES da mensagem atual
-                })
-            });
+    try {
+        // CORREÇÃO CRUCIAL AQUI:
+        // Enviamos o histórico completo. Como a mensagem de boas-vindas não é mais adicionada
+        // ao `chatHistory` que vai para a IA, a primeira mensagem será sempre a do 'user'.
+        const response = await fetch(chatUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                mensagem: message,
+                // Envia o histórico ANTES da mensagem atual do usuário.
+                // A mensagem atual é o `userMessage` que o backend usará para iniciar o `sendMessage`.
+                historico: chatHistory.slice(0, -1) 
+            })
+        });
 
-            chatLog.removeChild(chatLog.lastChild); // Remove "Digitando..."
+        chatLog.removeChild(chatLog.lastChild); // Remove "Digitando..."
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.erro || `Erro no servidor: ${response.status}`);
-            }
-
-            const data = await response.json();
-            addMessageToLog(data.resposta, 'bot');
-            // Adiciona a resposta do bot ao histórico local
-            chatHistory.push({ role: 'model', content: data.resposta }); // Gemini usa 'model' para suas respostas
-            
-            // Salva o histórico completo no MongoDB após cada interação bem-sucedida
-            salvarHistoricoCompleto();
-
-        } catch (error) {
-            if (chatLog.lastChild?.textContent === "Digitando...") {
-                chatLog.removeChild(chatLog.lastChild);
-            }
-            console.error('Erro ao processar mensagem:', error);
-            const errorMessage = `Desculpe, ocorreu um erro: ${error.message}`;
-            addMessageToLog(errorMessage, 'error');
-            // Adiciona a mensagem de erro ao histórico local para consistência
-            chatHistory.push({ role: 'error', content: errorMessage, timestamp: new Date().toISOString() });
-        } finally {
-            sendButton.disabled = false;
-            userInput.focus();
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.erro || `Erro no servidor: ${response.status}`);
         }
-    }
 
-    function iniciarChat() {
-        const welcomeMessage = "Olá! Eu sou o JorgeBot. Como posso te ajudar hoje? Posso verificar o clima e te dizer as horas!";
-        addMessageToLog(welcomeMessage, 'bot');
-        // Adiciona a mensagem inicial ao histórico
-        chatHistory.push({ role: 'model', content: welcomeMessage });
+        const data = await response.json();
+        addMessageToLog(data.resposta, 'bot');
+        // Adiciona a resposta do bot ao histórico local para manter o contexto.
+        chatHistory.push({ role: 'model', content: data.resposta });
+        
+        // Salva o histórico completo no MongoDB.
+        salvarHistoricoCompleto();
+
+    } catch (error) {
+        if (chatLog.lastChild?.textContent === "Digitando...") {
+            chatLog.removeChild(chatLog.lastChild);
+        }
+        console.error('Erro ao processar mensagem:', error);
+        const errorMessage = `Desculpe, ocorreu um erro: ${error.message}`;
+        addMessageToLog(errorMessage, 'error');
+        // Remove a última mensagem do usuário do histórico se houve erro, para que ele possa tentar de novo.
+        chatHistory.pop();
+    } finally {
+        sendButton.disabled = false;
+        userInput.focus();
     }
+}
+    
+function iniciarChat() {
+    const welcomeMessage = "Olá! Eu sou o JorgeBot. Como posso te ajudar hoje? Posso verificar o clima e te dizer as horas!";
+    addMessageToLog(welcomeMessage, 'bot');
+    // NÃO adicionamos mais a mensagem de boas-vindas ao `chatHistory`.
+    // O histórico começará vazio e a primeira coisa a ser adicionada será a primeira mensagem do usuário.
+}
 
     sendButton.addEventListener('click', () => {
         const message = userInput.value.trim();
@@ -115,5 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     iniciarChat();
 });
+
 
 
