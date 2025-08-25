@@ -108,7 +108,7 @@ async function handleChatWithTools(userMessage, chatHistory = []) {
 // --- ROTAS DA API ---
 
 // --- MUDANÇA 4: A rota /chat agora usa o histórico ---
-app.post('/chat', async (req, res) => {
+app.post('https://chatbot-liau.onrender.com/chat', async (req, res) => {
     // Extrai a mensagem E o histórico do corpo da requisição
     const { mensagem, historico } = req.body;
 
@@ -127,16 +127,29 @@ app.post('/chat', async (req, res) => {
 
 
 // Rota para salvar o histórico (sem alterações)
-app.post('/api/chat/salvar-historico', async (req, res) => {
+// chatbot.js -> Rota POST /api/chat/salvar-historico
+
+app.post('https://chatbot-liau.onrender.com/api/chat/salvar-historico', async (req, res) => {
     const { sessionId, botId, startTime, endTime, messages } = req.body;
     if (!sessionId || !messages) return res.status(400).json({ message: "sessionId e messages são obrigatórios." });
+
     try {
-        // Converte o histórico para o formato do Schema
-        const formattedMessages = messages.map(msg => ({
-            role: msg.role === 'model' ? 'bot' : (msg.role === 'user' ? 'user' : 'error'),
-            content: msg.content,
-            timestamp: msg.timestamp || new Date()
-        }));
+        // CORREÇÃO AQUI: Garante que os 'roles' estão no formato que o Schema espera ('bot', 'user', 'error')
+        const formattedMessages = messages.map(msg => {
+            let role;
+            if (msg.role === 'model' || msg.role === 'bot') {
+                role = 'bot';
+            } else if (msg.role === 'user') {
+                role = 'user';
+            } else {
+                role = 'error';
+            }
+            return {
+                role: role,
+                content: msg.content,
+                timestamp: msg.timestamp || new Date()
+            };
+        }).filter(msg => msg.content !== 'Digitando...'); // Filtra a mensagem "Digitando..." para não salvar
 
         const updatedHistory = await ChatHistory.findOneAndUpdate(
             { sessionId },
@@ -149,12 +162,11 @@ app.post('/api/chat/salvar-historico', async (req, res) => {
         res.status(500).json({ message: "Erro ao salvar o histórico." });
     }
 });
-
 // Outras rotas (GET, DELETE, POST, PUT para históricos) permanecem aqui...
 // ... (código das rotas de gerenciamento de histórico) ...
 
 // Rota para LER todos os históricos
-app.get('/api/chat/historicos', async (req, res) => {
+app.get('https://chatbot-liau.onrender.com/api/chat/historicos', async (req, res) => {
     try {
         const historicos = await ChatHistory.find({})
             .sort({ startTime: -1 })
@@ -167,7 +179,7 @@ app.get('/api/chat/historicos', async (req, res) => {
 });
 
 // Rota DELETE /api/chat/historicos/:id
-app.delete('/api/chat/historicos/:id', async (req, res) => {
+app.delete('https://chatbot-liau.onrender.com/api/chat/historicos/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const result = await ChatHistory.findByIdAndDelete(id);
@@ -179,7 +191,7 @@ app.delete('/api/chat/historicos/:id', async (req, res) => {
 });
 
 // Rota POST /api/chat/historicos/:id/gerar-titulo
-app.post('/api/chat/historicos/:id/gerar-titulo', async (req, res) => {
+app.post('https://chatbot-liau.onrender.com/api/chat/historicos/:id/gerar-titulo', async (req, res) => {
     try {
         const { id } = req.params;
         const historico = await ChatHistory.findById(id);
@@ -199,7 +211,7 @@ app.post('/api/chat/historicos/:id/gerar-titulo', async (req, res) => {
 });
 
 // Rota PUT /api/chat/historicos/:id
-app.put('/api/chat/historicos/:id', async (req, res) => {
+app.put('https://chatbot-liau.onrender.com/api/chat/historicos/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { title } = req.body;
@@ -219,3 +231,4 @@ app.put('/api/chat/historicos/:id', async (req, res) => {
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
