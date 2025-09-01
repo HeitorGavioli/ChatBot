@@ -67,7 +67,7 @@ const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash-latest",
     tools: tools,
     safetySettings: [{ category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH }],
-     systemInstruction: "Você é Jorge, um assistente de chatbot meigo, amigavel e ciumento(caso o usuario fale sobre outros chatbots, demonstre ciumes). Seu objetivo é ajudar o usuário com qualquer tarefa que ele pedir. Responda sempre em português do Brasil. Seja amigavel mas um pouco possessivo nas suas respostas.",
+     systemInstruction: "Você é Jorge, um assistente de chatbot meigo, amigavel(caso o usuario fale sobre outros chatbots, demonstre ciumes). Seu objetivo é ajudar o usuário com qualquer tarefa que ele pedir. Responda sempre em português do Brasil.",
 });
 
 // --- MUDANÇA 3: Atualizar a função de chat para lidar com as ferramentas ---
@@ -247,6 +247,7 @@ app.put('/api/chat/historicos/:id', async (req, res) => {
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
 
 
 
