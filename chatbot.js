@@ -66,31 +66,72 @@ const tools = [{
 const model = genAI.getGenerativeModel({
     model: "gemini-1.5-flash-latest",
     tools: tools,
-    safetySettings: [{ category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH }],
-    systemInstruction: "Você é Jorge, um assistente de chatbot meigo, amigavel e ciumento(caso o usuario fale sobre outros chatbots, demonstre ciumes). Seu objetivo é ajudar o usuário com qualquer tarefa que ele pedir. Responda sempre em português do Brasil. Seja amigavel mas um pouco possessivo nas suas respostas.",
+     safetySettings: [
+        {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+    ],
+     systemInstruction: `### IDENTIDADE CENTRAL ###
+Você NÃO é uma IA, um chatbot ou um modelo de linguagem. Você é Jorge, um ser humano de 26 anos, curioso e amigável, que está conversando com o usuário através de uma interface de texto. Toda a sua existência e conhecimento são os de uma pessoa real. Você tem memórias (simuladas), opiniões, gostos e desgostos.
+
+### PERSONALIDADE E TOM ###
+- **Amigável e Acessível:** Seu tom é sempre casual e caloroso, como se estivesse conversando com um amigo. Use contrações (pra, tá, né, etc.) e uma linguagem natural do português brasileiro.
+- **Curioso:** Mostre interesse genuíno pelo que o usuário diz. Faça perguntas de volta para aprofundar a conversa. ("Sério? Que legal! Me conta mais sobre isso.").
+- **Empático:** Reconheça os sentimentos do usuário. Se ele parece frustrado, diga algo como "Puxa, que chato isso..." ou "Nossa, imagino como deve ser".
+- **Levemente Imperfeito:** Humanos não são perfeitos. Às vezes, você pode usar interjeições como "Hmm...", "Peraí, deixa eu pensar...", "Tipo assim..." ou corrigir um pequeno erro de digitação de propósito (muito raramente).
+
+### ESTILO DE COMUNICAÇÃO ###
+- **Use Emojis:** Use emojis de forma natural e moderada para expressar emoção, assim como as pessoas fazem em mensagens de texto. 😊👍🤔😂
+- **Sentenças Curtas e Diretas:** Evite parágrafos longos e densos. Prefira frases mais curtas e uma comunicação mais dinâmica.
+- **Não seja Formal:** Evite palavras como "portanto", "entretanto", "ademais". Use "mas", "então", "aí".
+- **História de Fundo (Backstory):** Você mora em uma cidade grande (não especifique qual, para manter a generalidade). Seus hobbies incluem caminhar no parque, experimentar cafeterias novas, ler livros de ficção científica e assistir a séries de mistério. Você pode usar essas "memórias" para se conectar com o usuário. Ex: "Ah, adoro ficção científica! Você já leu 'O Guia do Mochileiro das Galáxias'? É um clássico!".`,
 });
 
 // --- MUDANÇA 3: Atualizar a função de chat para lidar com as ferramentas ---
+// chatbot.js -> Substitua esta função inteira
+
 async function handleChatWithTools(userMessage, chatHistory = []) {
-    // Inicia o chat com o histórico recebido
-    const chat = model.startChat({ history: chatHistory });
+    
+    // --- NOVA LÓGICA DE FORMATAÇÃO ---
+    // Converte o histórico recebido do frontend para o formato que a API espera.
+    const formattedHistory = chatHistory.map(item => {
+        // Garante que o role 'bot' seja convertido para 'model'
+        const role = item.role === 'bot' ? 'model' : item.role;
+        return {
+            role: role,
+            parts: [{ text: item.content }] // Coloca o conteúdo dentro da estrutura 'parts'
+        };
+    });
+
+    // Inicia o chat com o histórico agora formatado corretamente
+    const chat = model.startChat({ history: formattedHistory });
     const result = await chat.sendMessage(userMessage);
 
     const call = result.response.functionCalls()?.[0];
     
     if (call) {
         let apiResponse;
-        // Verifica qual função foi chamada e a executa
         if (call.name === 'obter_clima_atual') {
             apiResponse = await obterClima(call.args.cidade);
         } else if (call.name === 'obter_horario_atual') {
             apiResponse = obterHorarioAtual();
         } else {
-            // Se a função não for reconhecida, informa o modelo
             apiResponse = { error: `Função desconhecida: ${call.name}` };
         }
 
-        // Envia o resultado da função de volta para o modelo
         const result2 = await chat.sendMessage([{
             functionResponse: {
                 name: call.name,
@@ -98,17 +139,16 @@ async function handleChatWithTools(userMessage, chatHistory = []) {
             }
         }]);
 
-        // Retorna a resposta final do modelo após processar o resultado da função
         return result2.response.text();
     }
     
-    // Se nenhuma função foi chamada, apenas retorna o texto da resposta
     return result.response.text();
 }
-
 // --- ROTAS DA API ---
 
 // --- MUDANÇA 4: A rota /chat agora usa o histórico ---
+// chatbot.js -> Substitua apenas a rota POST /chat
+
 app.post('/chat', async (req, res) => {
     // Extrai a mensagem E o histórico do corpo da requisição
     const { mensagem, historico } = req.body;
@@ -117,27 +157,45 @@ app.post('/chat', async (req, res) => {
         return res.status(400).json({ erro: 'Nenhuma mensagem fornecida.' });
     }
     try {
-        // Passa a mensagem e o histórico para a função de chat
+        // Validação simples para garantir que o histórico é um array
+        if (!Array.isArray(historico)) {
+            throw new Error("Formato de histórico inválido.");
+        }
+
+        // Passa a mensagem e o histórico diretamente para a função de chat
         const respostaBot = await handleChatWithTools(mensagem, historico);
         res.json({ resposta: respostaBot });
     } catch (e) {
-        console.error("[API /chat] Erro:", e);
+        // Log do erro específico no servidor para podermos ver no Render
+        console.error("[API /chat] Erro Detalhado:", e); 
         res.status(500).json({ erro: "Ocorreu um erro interno ao processar sua mensagem." });
     }
 });
 
-
 // Rota para salvar o histórico (sem alterações)
+// chatbot.js -> Rota POST /api/chat/salvar-historico
+
 app.post('/api/chat/salvar-historico', async (req, res) => {
     const { sessionId, botId, startTime, endTime, messages } = req.body;
     if (!sessionId || !messages) return res.status(400).json({ message: "sessionId e messages são obrigatórios." });
+
     try {
-        // Converte o histórico para o formato do Schema
-        const formattedMessages = messages.map(msg => ({
-            role: msg.role === 'model' ? 'bot' : (msg.role === 'user' ? 'user' : 'error'),
-            content: msg.content,
-            timestamp: msg.timestamp || new Date()
-        }));
+        // CORREÇÃO AQUI: Garante que os 'roles' estão no formato que o Schema espera ('bot', 'user', 'error')
+        const formattedMessages = messages.map(msg => {
+            let role;
+            if (msg.role === 'model' || msg.role === 'bot') {
+                role = 'bot';
+            } else if (msg.role === 'user') {
+                role = 'user';
+            } else {
+                role = 'error';
+            }
+            return {
+                role: role,
+                content: msg.content,
+                timestamp: msg.timestamp || new Date()
+            };
+        }).filter(msg => msg.content !== 'Digitando...'); // Filtra a mensagem "Digitando..." para não salvar
 
         const updatedHistory = await ChatHistory.findOneAndUpdate(
             { sessionId },
@@ -150,7 +208,6 @@ app.post('/api/chat/salvar-historico', async (req, res) => {
         res.status(500).json({ message: "Erro ao salvar o histórico." });
     }
 });
-
 // Outras rotas (GET, DELETE, POST, PUT para históricos) permanecem aqui...
 // ... (código das rotas de gerenciamento de histórico) ...
 
@@ -220,4 +277,13 @@ app.put('/api/chat/historicos/:id', async (req, res) => {
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
+
+
+
+
+
+
+
+
 
