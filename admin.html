@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JorgeBot - Painel Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav id="navbar">
+        <a href="index.html">Voltar ao Chat</a>
+        <a href="historico.html">Histórico de Conversas</a>
+        <a href="sobrebot.html">Sobre o Criador</a>
+    </nav>
+
+    <!-- Tela de Login -->
+    <div id="login-screen" class="login-container">
+        <h1>🔐 Acesso Administrativo</h1>
+        <p style="margin: 20px 0; opacity: 0.8;">Digite a senha de administrador para acessar o painel</p>
+        <input type="password" id="admin-password" class="input-field" placeholder="Senha de administrador" autocomplete="current-password">
+        <button id="login-btn" class="btn" style="width: 100%;">Entrar</button>
+        <div id="login-error" class="status-message status-error hidden">
+            Senha incorreta. Tente novamente.
+        </div>
+    </div>
+
+    <!-- Painel de Administração -->
+    <div id="admin-panel" class="admin-container hidden">
+        <div class="admin-header">
+            <h1>🛠️ Painel de Administração - JorgeBot</h1>
+            <button id="logout-btn" class="logout-btn">Sair</button>
+        </div>
+
+        <div class="admin-content">
+            <!-- Seção de Métricas -->
+            <div class="metrics-section">
+                <h2>📊 Estatísticas do Sistema</h2>
+                
+                <div class="metric-card">
+                    <h3>Total de Conversas</h3>
+                    <div id="total-conversations" class="metric-value">--</div>
+                </div>
+
+                <div class="metric-card">
+                    <h3>Total de Mensagens</h3>
+                    <div id="total-messages" class="metric-value">--</div>
+                </div>
+
+                <div class="conversations-list">
+                    <h3>Últimas 5 Conversas</h3>
+                    <div id="recent-conversations">
+                        <div class="conversation-item">Carregando...</div>
+                    </div>
+                </div>
+
+                <button id="refresh-stats-btn" class="btn btn-secondary" style="width: 100%;">
+                    🔄 Atualizar Estatísticas
+                </button>
+            </div>
+
+            <!-- Seção de Controle -->
+            <div class="control-section">
+                <h2>🤖 Controle da IA</h2>
+                
+                <div class="system-instruction-area">
+                    <h3>Personalidade do Bot (System Instruction)</h3>
+                    <textarea 
+                        id="system-instruction-textarea" 
+                        placeholder="Cole aqui a nova instrução de sistema para definir a personalidade do bot...">
+                    </textarea>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button id="save-instruction-btn" class="btn">💾 Salvar Nova Instrução</button>
+                        <button id="load-instruction-btn" class="btn btn-secondary">📥 Carregar Atual</button>
+                    </div>
+
+                    <div id="instruction-status" class="hidden"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurações da API
+        const API_BASE_URL = 'https://chatbot-liau.onrender.com';
+        
+        // Elementos do DOM
+        const loginScreen = document.getElementById('login-screen');
+        const adminPanel = document.getElementById('admin-panel');
+        const adminPassword = document.getElementById('admin-password');
+        const loginBtn = document.getElementById('login-btn');
+        const loginError = document.getElementById('login-error');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        // Elementos das métricas
+        const totalConversations = document.getElementById('total-conversations');
+        const totalMessages = document.getElementById('total-messages');
+        const recentConversations = document.getElementById('recent-conversations');
+        const refreshStatsBtn = document.getElementById('refresh-stats-btn');
+        
+        // Elementos do controle da IA
+        const systemInstructionTextarea = document.getElementById('system-instruction-textarea');
+        const saveInstructionBtn = document.getElementById('save-instruction-btn');
+        const loadInstructionBtn = document.getElementById('load-instruction-btn');
+        const instructionStatus = document.getElementById('instruction-status');
+
+        // Variável para armazenar a senha
+        let currentPassword = '12345678';
+        // Função para mostrar mensagem de status
+        function showStatus(element, message, isError = false) {
+            element.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
+            element.textContent = message;
+            element.classList.remove('hidden');
+            
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 4000);
+        }
+        
+        // Função de login
+        async function handleLogin() {
+            const password = adminPassword.value.trim();
+            if (!password) {
+                showStatus(loginError, 'Por favor, digite a senha.', true);
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Verificando...';
+
+            try {
+                // Testa a senha fazendo uma requisição para as estatísticas
+                const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${password}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    currentPassword = password;
+                    loginScreen.classList.add('hidden');
+                    adminPanel.classList.remove('hidden');
+                    await loadStatistics();
+                    await loadCurrentInstruction();
+                } else {
+                    showStatus(loginError, 'Senha incorreta. Tente novamente.', true);
+                }
+            } catch (error) {
+                console.error('Erro no login:', error);
+                showStatus(loginError, 'Erro de conexão. Tente novamente.', true);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Entrar';
+            }
+        }
+
+        // Função para carregar estatísticas
+        async function loadStatistics() {
+            refreshStatsBtn.disabled = true;
+            refreshStatsBtn.textContent = '🔄 Carregando...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentPassword}`
+                    }
+                });
+
+                if (response.ok) {
+                    const stats = await response.json();
+                    
+                    totalConversations.textContent = stats.totalConversations || 0;
+                    totalMessages.textContent = stats.totalMessages || 0;
+                    
+                    // Atualizar lista de conversas recentes
+                    if (stats.recentConversations && stats.recentConversations.length > 0) {
+                        recentConversations.innerHTML = stats.recentConversations
+                            .map(conv => `
+                                <div class="conversation-item">
+                                    <strong>${conv.title}</strong><br>
+                                    <small>${new Date(conv.startTime).toLocaleString('pt-BR')}</small>
+                                </div>
+                            `).join('');
+                    } else {
+                        recentConversations.innerHTML = '<div class="conversation-item">Nenhuma conversa encontrada</div>';
+                    }
+                } else {
+                    throw new Error('Falha ao carregar estatísticas');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+                recentConversations.innerHTML = '<div class="conversation-item" style="color: var(--error-color);">Erro ao carregar dados</div>';
+            } finally {
+                refreshStatsBtn.disabled = false;
+                refreshStatsBtn.textContent = '🔄 Atualizar Estatísticas';
+            }
+        }
+
+        // Função para carregar instrução atual
+        async function loadCurrentInstruction() {
+            loadInstructionBtn.disabled = true;
+            loadInstructionBtn.textContent = '📥 Carregando...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/system-instruction`, {
+                    headers: {
+                        'Authorization': `Bearer ${currentPassword}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    systemInstructionTextarea.value = data.instruction || '';
+                    showStatus(instructionStatus, 'Instrução atual carregada com sucesso!');
+                } else {
+                    throw new Error('Falha ao carregar instrução');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar instrução:', error);
+                showStatus(instructionStatus, 'Erro ao carregar instrução atual.', true);
+            } finally {
+                loadInstructionBtn.disabled = false;
+                loadInstructionBtn.textContent = '📥 Carregar Atual';
+            }
+        }
+
+        // Função para salvar nova instrução
+        async function saveInstruction() {
+            const instruction = systemInstructionTextarea.value.trim();
+            if (!instruction) {
+                showStatus(instructionStatus, 'Por favor, digite uma instrução antes de salvar.', true);
+                return;
+            }
+
+            saveInstructionBtn.disabled = true;
+            saveInstructionBtn.textContent = '💾 Salvando...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/system-instruction`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentPassword}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ instruction })
+                });
+
+                if (response.ok) {
+                    showStatus(instructionStatus, 'Nova instrução salva com sucesso! ✅');
+                } else {
+                    throw new Error('Falha ao salvar instrução');
+                }
+            } catch (error) {
+                console.error('Erro ao salvar instrução:', error);
+                showStatus(instructionStatus, 'Erro ao salvar a instrução.', true);
+            } finally {
+                saveInstructionBtn.disabled = false;
+                saveInstructionBtn.textContent = '💾 Salvar Nova Instrução';
+            }
+        }
+
+        // Função de logout
+        function handleLogout() {
+            currentPassword = '';
+            adminPassword.value = '';
+            systemInstructionTextarea.value = '';
+            adminPanel.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            loginError.classList.add('hidden');
+        }
+
+        // Event Listeners
+        loginBtn.addEventListener('click', handleLogin);
+        adminPassword.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
+
+        logoutBtn.addEventListener('click', handleLogout);
+        refreshStatsBtn.addEventListener('click', loadStatistics);
+        loadInstructionBtn.addEventListener('click', loadCurrentInstruction);
+        saveInstructionBtn.addEventListener('click', saveInstruction);
+
+        // Foco inicial no campo de senha
+        adminPassword.focus();
+    </script>
+</body>
+</html>
