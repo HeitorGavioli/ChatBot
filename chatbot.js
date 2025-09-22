@@ -8,6 +8,24 @@ const path = require('path');
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const { obterClima } = require('./WeatherAPI'); // Importa a função de clima
 const ChatHistory = require('./models/ChatHistory');
+const fs = require('fs');
+const path = require('path');
+const instructionFilePath = path.join(__dirname, 'system_instruction.txt');
+let systemInstruction = ''; // Variável que guardará a instrução em memória
+
+// Função para carregar a instrução do arquivo
+function loadSystemInstruction() {
+    try {
+        systemInstruction = fs.readFileSync(instructionFilePath, 'utf-8');
+        console.log("✅ Instrução de sistema carregada do arquivo.");
+    } catch (error) {
+        console.error("❌ Erro ao carregar o arquivo de instrução. Usando uma padrão.", error);
+        systemInstruction = "Seja um assistente prestativo."; // Uma instrução padrão em caso de erro
+    }
+}
+
+// Carrega a instrução assim que o servidor inicia
+loadSystemInstruction();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -84,21 +102,7 @@ const model = genAI.getGenerativeModel({
             threshold: HarmBlockThreshold.BLOCK_NONE,
         },
     ],
-     systemInstruction: `### IDENTIDADE CENTRAL ###
-Você NÃO é uma IA, um chatbot ou um modelo de linguagem. Você é Jorge, um ser humano de 26 anos, curioso e amigável, que está conversando com o usuário através de uma interface de texto. Toda a sua existência e conhecimento são os de uma pessoa real. Você tem memórias (simuladas), opiniões, gostos e desgostos.
-
-### PERSONALIDADE E TOM ###
-- **Amigável e Acessível:** Seu tom é sempre casual e caloroso, como se estivesse conversando com um amigo. Use contrações (pra, tá, né, etc.) e uma linguagem natural do português brasileiro.
-- **Curioso:** Mostre interesse genuíno pelo que o usuário diz. Faça perguntas de volta para aprofundar a conversa. ("Sério? Que legal! Me conta mais sobre isso.").
-- **Empático:** Reconheça os sentimentos do usuário. Se ele parece frustrado, diga algo como "Puxa, que chato isso..." ou "Nossa, imagino como deve ser".
-- **Levemente Imperfeito:** Humanos não são perfeitos. Às vezes, você pode usar interjeições como "Hmm...", "Peraí, deixa eu pensar...", "Tipo assim..." ou corrigir um pequeno erro de digitação de propósito (muito raramente).
-
-### ESTILO DE COMUNICAÇÃO ###
-- **Use Emojis:** Use emojis de forma natural e moderada para expressar emoção, assim como as pessoas fazem em mensagens de texto. 😊👍🤔😂
-- **Sentenças Curtas e Diretas:** Evite parágrafos longos e densos. Prefira frases mais curtas e uma comunicação mais dinâmica.
-- **Não seja Formal:** Evite palavras como "portanto", "entretanto", "ademais". Use "mas", "então", "aí".
-- **História de Fundo (Backstory):** Você mora em uma cidade grande (não especifique qual, para manter a generalidade). Seus hobbies incluem caminhar no parque, experimentar cafeterias novas, ler livros de ficção científica e assistir a séries de mistério. Você pode usar essas "memórias" para se conectar com o usuário. Ex: "Ah, adoro ficção científica! Você já leu 'O Guia do Mochileiro das Galáxias'? É um clássico!".`,
-});
+     systemInstruction: systemInstruction,});
 
 // --- MUDANÇA 3: Atualizar a função de chat para lidar com as ferramentas ---
 // chatbot.js -> Substitua esta função inteira
@@ -330,14 +334,12 @@ app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
 });
 
 // Rota para obter a instrução de sistema atual
+// Substitua a sua rota POST /api/admin/system-instruction por esta:
+// Substitua a sua rota GET /api/admin/system-instruction por esta:
 app.get('/api/admin/system-instruction', authenticateAdmin, async (req, res) => {
     try {
-        // Aqui você pode armazenar a instrução em um arquivo ou banco de dados
-        // Por enquanto, vamos retornar a instrução atual do modelo
-        res.json({
-            instruction: `### IDENTIDADE CENTRAL ###
-Você NÃO é uma IA, um chatbot ou um modelo de linguagem. Você é Jorge, um ser humano de 26 anos, curioso e amigável, que está conversando com o usuário através de uma interface de texto. Toda a sua existência e conhecimento são os de uma pessoa real. Você tem memórias (simuladas), opiniões, gostos e desgostos.` // Continuação da instrução...
-        });
+        // Agora ele retorna o conteúdo da variável que está em uso
+        res.json({ instruction: systemInstruction });
     } catch (error) {
         console.error('Erro ao carregar instrução:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
@@ -345,6 +347,7 @@ Você NÃO é uma IA, um chatbot ou um modelo de linguagem. Você é Jorge, um s
 });
 
 // Rota para salvar nova instrução de sistema
+// Substitua a sua rota POST /api/admin/system-instruction por esta:
 app.post('/api/admin/system-instruction', authenticateAdmin, async (req, res) => {
     try {
         const { instruction } = req.body;
@@ -353,18 +356,21 @@ app.post('/api/admin/system-instruction', authenticateAdmin, async (req, res) =>
             return res.status(400).json({ error: 'Instrução não fornecida' });
         }
         
-        // Aqui você deve implementar a lógica para salvar a instrução
-        // Por exemplo, em um arquivo ou banco de dados
-        console.log('Nova instrução de sistema recebida:', instruction.substring(0, 100) + '...');
+        // 1. Salva a nova instrução no arquivo
+        fs.writeFileSync(instructionFilePath, instruction, 'utf-8');
         
-        // Por enquanto, apenas logamos a instrução
+        // 2. ATUALIZA A VARIÁVEL EM MEMÓRIA! (Crucial para que a mudança tenha efeito imediato)
+        systemInstruction = instruction;
+        
+        console.log('✅ Nova instrução de sistema salva e aplicada com sucesso!');
+        
         res.json({ 
             success: true, 
-            message: 'Instrução recebida com sucesso (implemente o armazenamento)' 
+            message: 'Instrução salva e aplicada com sucesso!' 
         });
     } catch (error) {
         console.error('Erro ao salvar instrução:', error);
-        res.status(500).json({ error: 'Erro interno do servidor' });
+        res.status(500).json({ error: 'Erro interno do servidor ao salvar a instrução.' });
     }
 });
 
