@@ -271,7 +271,6 @@ app.put('/api/chat/historicos/:id', async (req, res) => {
         res.status(500).json({ message: 'Erro ao atualizar o título.' });
     }
 });
-
 // chatbot.js - Adicione estas rotas ANTES do app.listen()
 
 // =============================================
@@ -368,11 +367,11 @@ app.post('/api/admin/system-instruction', authenticateAdmin, async (req, res) =>
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
+
 // Inicia o servidor
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
-
 
 
 
