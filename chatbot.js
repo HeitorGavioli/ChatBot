@@ -9,7 +9,6 @@ const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@googl
 const { obterClima } = require('./WeatherAPI'); // Importa a função de clima
 const ChatHistory = require('./models/ChatHistory');
 const fs = require('fs');
-const path = require('path');
 const instructionFilePath = path.join(__dirname, 'system_instruction.txt');
 let systemInstruction = ''; // Variável que guardará a instrução em memória
 
@@ -378,6 +377,7 @@ app.post('/api/admin/system-instruction', authenticateAdmin, async (req, res) =>
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
 
 
 
