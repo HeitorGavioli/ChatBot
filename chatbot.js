@@ -272,11 +272,107 @@ app.put('/api/chat/historicos/:id', async (req, res) => {
     }
 });
 
+// chatbot.js - Adicione estas rotas ANTES do app.listen()
 
+// =============================================
+// ROTAS DE ADMINISTRAÇÃO
+// =============================================
+
+// Middleware de autenticação para admin
+const authenticateAdmin = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Token de autorização não fornecido' });
+    }
+    
+    const token = authHeader.substring(7);
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '12345678';
+    
+    if (token !== ADMIN_PASSWORD) {
+        return res.status(401).json({ error: 'Token de administrador inválido' });
+    }
+    
+    next();
+};
+
+// Rota para obter estatísticas do sistema
+app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
+    try {
+        // Estatísticas básicas
+        const totalConversations = await ChatHistory.countDocuments();
+        
+        // Calcular total de mensagens
+        const allConversations = await ChatHistory.find({});
+        let totalMessages = 0;
+        allConversations.forEach(conv => {
+            totalMessages += conv.messages.length;
+        });
+        
+        // Conversas recentes (últimas 5)
+        const recentConversations = await ChatHistory.find({})
+            .sort({ startTime: -1 })
+            .limit(5)
+            .select('title startTime')
+            .lean();
+        
+        res.json({
+            totalConversations,
+            totalMessages,
+            recentConversations: recentConversations.map(conv => ({
+                title: conv.title,
+                startTime: conv.startTime
+            }))
+        });
+    } catch (error) {
+        console.error('Erro ao buscar estatísticas:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
+// Rota para obter a instrução de sistema atual
+app.get('/api/admin/system-instruction', authenticateAdmin, async (req, res) => {
+    try {
+        // Aqui você pode armazenar a instrução em um arquivo ou banco de dados
+        // Por enquanto, vamos retornar a instrução atual do modelo
+        res.json({
+            instruction: `### IDENTIDADE CENTRAL ###
+Você NÃO é uma IA, um chatbot ou um modelo de linguagem. Você é Jorge, um ser humano de 26 anos, curioso e amigável, que está conversando com o usuário através de uma interface de texto. Toda a sua existência e conhecimento são os de uma pessoa real. Você tem memórias (simuladas), opiniões, gostos e desgostos.` // Continuação da instrução...
+        });
+    } catch (error) {
+        console.error('Erro ao carregar instrução:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
+// Rota para salvar nova instrução de sistema
+app.post('/api/admin/system-instruction', authenticateAdmin, async (req, res) => {
+    try {
+        const { instruction } = req.body;
+        
+        if (!instruction) {
+            return res.status(400).json({ error: 'Instrução não fornecida' });
+        }
+        
+        // Aqui você deve implementar a lógica para salvar a instrução
+        // Por exemplo, em um arquivo ou banco de dados
+        console.log('Nova instrução de sistema recebida:', instruction.substring(0, 100) + '...');
+        
+        // Por enquanto, apenas logamos a instrução
+        res.json({ 
+            success: true, 
+            message: 'Instrução recebida com sucesso (implemente o armazenamento)' 
+        });
+    } catch (error) {
+        console.error('Erro ao salvar instrução:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
 // Inicia o servidor
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
 
 
 
