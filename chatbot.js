@@ -64,7 +64,7 @@ const tools = [{
 }];
 
 const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest",
+    model: "gemini-1.5-pro-latest",
     tools: tools,
      safetySettings: [
         {
@@ -246,7 +246,7 @@ app.post('/api/chat/historicos/:id/gerar-titulo', async (req, res) => {
         const formattedHistory = historico.messages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
         const prompt = `Com base na conversa a seguir, sugira um título curto de no máximo 5 palavras:\n\n---\n${formattedHistory}\n---`;
         
-        const titleGenModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const titleGenModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
         const result = await titleGenModel.generateContent(prompt);
         const suggestedTitle = result.response.text().trim();
         
@@ -389,6 +389,7 @@ app.post('/api/admin/system-instruction', adminAuth, (req, res) => {
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
 
 
 
