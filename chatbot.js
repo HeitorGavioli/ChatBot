@@ -271,12 +271,125 @@ app.put('/api/chat/historicos/:id', async (req, res) => {
         res.status(500).json({ message: 'Erro ao atualizar o título.' });
     }
 });
+// --- ROTAS DE ADMINISTRAÇÃO ---
 
+// Middleware simples para autenticação de administrador
+const adminAuth = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Formato "Bearer SENHA"
+
+    if (token == null) {
+        return res.sendStatus(401); // Não autorizado
+    }
+
+    if (token === process.env.ADMIN_PASSWORD) {
+        next(); // Senha correta, prosseguir
+    } else {
+        return res.sendStatus(403); // Proibido/Senha incorreta
+    }
+};
+
+// Rota para buscar as estatísticas do sistema
+app.get('/api/admin/stats', adminAuth, async (req, res) => {
+    try {
+        // Pipeline para métricas gerais e de engajamento
+        const statsPipeline = [
+            // Estágio 1: Adicionar campos calculados para cada conversa
+            {
+                $addFields: {
+                    numeroDeMensagens: { $size: "$messages" },
+                    // Calcula a duração em segundos, tratando casos onde endTime pode não existir
+                    duracaoEmSegundos: {
+                        $cond: {
+                            if: { $and: ["$startTime", "$endTime"] },
+                            then: { $divide: [{ $subtract: ["$endTime", "$startTime"] }, 1000] },
+                            else: 0
+                        }
+                    }
+                }
+            },
+            // Estágio 2: Agrupar todos os documentos para obter os totais e médias
+            {
+                $group: {
+                    _id: null,
+                    totalConversas: { $sum: 1 },
+                    totalMensagens: { $sum: "$numeroDeMensagens" },
+                    profundidadeMedia: { $avg: "$numeroDeMensagens" },
+                    duracaoMediaConversa: { $avg: "$duracaoEmSegundos" },
+                    conversasCurtas: {
+                        $sum: {
+                            // Conta conversas com 3 ou menos mensagens (ajuste se necessário)
+                            $cond: [{ $lte: ["$numeroDeMensagens", 3] }, 1, 0]
+                        }
+                    },
+                    conversasLongas: {
+                        $sum: {
+                            // Conta conversas com mais de 3 mensagens
+                            $cond: [{ $gt: ["$numeroDeMensagens", 3] }, 1, 0]
+                        }
+                    }
+                }
+            },
+            // Estágio 3: Formatar o documento de saída
+            {
+                $project: {
+                    _id: 0,
+                    totalConversations: "$totalConversas",
+                    totalMessages: "$totalMensagens",
+                    averageConversationDuration: { $round: ["$duracaoMediaConversa", 2] },
+                    engagementDepth: { $round: ["$profundidadeMedia", 2] },
+                    shortConversations: "$conversasCurtas",
+                    longConversations: "$conversasLongas"
+                }
+            }
+        ];
+
+        // Pipeline separada para contar as mensagens de erro
+        const errorPipeline = [
+            { $unwind: "$messages" },
+            { $match: { "messages.role": "error" } },
+            { $count: "totalErrors" }
+        ];
+
+        // Executa as agregações
+        const statsResult = await ChatHistory.aggregate(statsPipeline);
+        const errorResult = await ChatHistory.aggregate(errorPipeline);
+        const recentConversations = await ChatHistory.find({}).sort({ startTime: -1 }).limit(5);
+        
+        // Combina os resultados em um único objeto
+        const finalStats = {
+            ...(statsResult[0] || { totalConversations: 0, totalMessages: 0 }), // Pega o primeiro resultado ou um objeto vazio
+            totalErrors: errorResult[0]?.totalErrors || 0, // Pega o total de erros ou 0
+            recentConversations
+        };
+
+        res.json(finalStats);
+
+    } catch (error) {
+        console.error("[API /admin/stats] Erro ao buscar estatísticas:", error);
+        res.status(500).json({ message: "Erro interno do servidor ao buscar estatísticas." });
+    }
+});
+
+// Rota para obter/salvar a instrução do sistema (exemplo, precisa ser implementada)
+// Por enquanto, essas rotas retornam placeholders.
+app.get('/api/admin/system-instruction', adminAuth, (req, res) => {
+    res.json({ instruction: model.systemInstruction || 'Instrução do sistema não carregada.' });
+});
+
+app.post('/api/admin/system-instruction', adminAuth, (req, res) => {
+    const { instruction } = req.body;
+    // Em uma implementação real, você salvaria isso de forma persistente.
+    // Aqui, apenas demonstramos o sucesso.
+    console.log("Nova instrução recebida:", instruction);
+    res.status(200).json({ message: 'Instrução salva com sucesso!' });
+});
 
 // Inicia o servidor
 app.listen(port, () => {
     console.log(`🤖 Servidor rodando em http://localhost:${port}`);
 });
+
 
 
 
