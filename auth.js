@@ -1,4 +1,4 @@
---- START OF FILE public/auth.js ---
+
 document.addEventListener('DOMContentLoaded', () => {
     const navbar = document.getElementById('navbar');
     if (!navbar) return; // Se não houver navbar na página, não faz nada
@@ -41,4 +41,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
---- END OF FILE ---
