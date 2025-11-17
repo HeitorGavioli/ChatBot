@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro - JorgeBot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav id="navbar"></nav>
+    <div id="register-container" class="login-container">
+        <h1>Registrar</h1>
+        <input type="text" id="username" class="input-field" placeholder="Usuário" required>
+        <input type="password" id="password" class="input-field" placeholder="Senha" required>
+        <button id="register-btn" class="btn" style="width: 100%;">Registrar</button>
+        <div id="register-status" class="status-message hidden"></div>
+        <p style="margin-top: 15px;">Já tem uma conta? <a href="login.html">Faça login</a></p>
+    </div>
+    <script src="auth.js"></script>
+    <script>
+        const registerBtn = document.getElementById('register-btn');
+        // ... (lógica de fetch similar ao login.html para a rota /api/auth/register)
+    </script>
+</body>
+</html>
