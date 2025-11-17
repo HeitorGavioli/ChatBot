@@ -1,7 +1,27 @@
 
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
+const allowedOrigins = [
+  'https://chat-bot-eight-opal.vercel.app', // Seu frontend no Vercel
+  'http://localhost:3000',                  // Para testes locais
+  'http://127.0.0.1:5500'                   // Para testes locais com Live Server
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permite requisições sem 'origin' (como apps mobile ou Postman) E
+    // requisições cujo 'origin' está na nossa lista de permissões.
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Acesso não permitido pela política de CORS'));
+    }
+  }
+};
+
+// Use as opções de CORS que acabamos de configurar
+app.use(cors(corsOptions));
+
 const mongoose = require('mongoose');
 const path = require('path');
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
@@ -171,3 +191,4 @@ app.post('/api/admin/system-instruction', adminAuth, async (req, res) => {
 });
 
 app.listen(port, () => console.log(`🤖 Servidor rodando na porta ${port}`));
+
