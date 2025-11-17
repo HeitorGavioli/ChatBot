@@ -2,48 +2,87 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minhas Configurações - JorgeBot</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <nav id="navbar"></nav>
-    <div class="admin-container" style="max-width: 800px;">
+    <div class="admin-container" style="max-width: 800px; margin-top: 80px;">
         <div class="admin-header"><h1>🎨 Personalize seu Bot</h1></div>
         <div class="admin-content" style="grid-template-columns: 1fr;">
             <div class="system-instruction-area">
                 <h3>Sua Personalidade Customizada</h3>
-                <textarea id="custom-instruction-textarea" placeholder="Ex: Você é um pirata..."></textarea>
-                <button id="save-custom-btn" class="btn">💾 Salvar</button>
-                <div id="settings-status" class="hidden"></div>
+                <p style="opacity: 0.8; margin-bottom: 15px;">
+                    Defina aqui como seu bot deve se comportar. Deixe em branco para usar a personalidade padrão definida pelo administrador.
+                </p>
+                <textarea id="custom-instruction-textarea" placeholder="Ex: Você é um mestre de yoga e suas respostas são sempre calmas e reflexivas. Use emojis de paz."></textarea>
+                <button id="save-custom-btn" class="btn">💾 Salvar Personalidade</button>
+                <div id="settings-status" class="status-message hidden"></div>
             </div>
         </div>
     </div>
     <script src="auth.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            if (!localStorage.getItem('token')) window.location.href = 'login.html';
+            const token = localStorage.getItem('token');
+            // Protege a página: se não estiver logado, manda para o login.
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
 
             const instructionTextarea = document.getElementById('custom-instruction-textarea');
             const saveBtn = document.getElementById('save-custom-btn');
             const statusDiv = document.getElementById('settings-status');
-            const token = localStorage.getItem('token');
+            const API_URL = 'https://chatbot-liau.onrender.com/api/user/preferences';
 
-            // Carregar instrução
-            fetch('https://chatbot-liau.onrender.com/api/user/preferences', { headers: { 'Authorization': `Bearer ${token}` }})
-                .then(res => res.json())
-                .then(data => instructionTextarea.value = data.instruction);
+            function showStatus(message, isError = false) {
+                statusDiv.textContent = message;
+                statusDiv.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
+                statusDiv.classList.remove('hidden');
+                setTimeout(() => statusDiv.classList.add('hidden'), 4000);
+            }
 
-            // Salvar instrução
-            saveBtn.addEventListener('click', async () => {
-                const res = await fetch('https://chatbot-liau.onrender.com/api/user/preferences', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-                    body: JSON.stringify({ instruction: instructionTextarea.value })
-                });
-                const data = await res.json();
-                statusDiv.textContent = data.message;
-                statusDiv.className = res.ok ? 'status-message status-success' : 'status-message status-error';
-            });
+            async function loadInstruction() {
+                try {
+                    const response = await fetch(API_URL, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) throw new Error('Falha ao carregar sua configuração.');
+                    const data = await response.json();
+                    instructionTextarea.value = data.instruction;
+                } catch (error) {
+                    showStatus(error.message, true);
+                }
+            }
+
+            async function saveInstruction() {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Salvando...';
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ instruction: instructionTextarea.value })
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || 'Falha ao salvar.');
+                    showStatus(data.message, false);
+                } catch (error) {
+                    showStatus(error.message, true);
+                } finally {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 Salvar Personalidade';
+                }
+            }
+            
+            saveBtn.addEventListener('click', saveInstruction);
+            loadInstruction();
         });
     </script>
 </body>
