@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - JorgeBot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav id="navbar"></nav>
+    <div id="login-container" class="login-container">
+        <h1>Login</h1>
+        <input type="text" id="username" class="input-field" placeholder="Usuário" required>
+        <input type="password" id="password" class="input-field" placeholder="Senha" required>
+        <button id="login-btn" class="btn" style="width: 100%;">Entrar</button>
+        <div id="login-status" class="status-message hidden"></div>
+        <p style="margin-top: 15px;">Não tem uma conta? <a href="register.html">Registre-se</a></p>
+    </div>
+    <script src="auth.js"></script>
+    <script>
+        const loginBtn = document.getElementById('login-btn');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const statusDiv = document.getElementById('login-status');
+        
+        loginBtn.addEventListener('click', async () => {
+            const res = await fetch('https://chatbot-liau.onrender.com/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: usernameInput.value, password: passwordInput.value })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('username', data.username);
+                window.location.href = 'index.html';
+            } else {
+                statusDiv.textContent = data.message;
+                statusDiv.className = 'status-message status-error';
+            }
+        });
+    </script>
+</body>
+</html>
