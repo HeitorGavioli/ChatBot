@@ -2,41 +2,77 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - JorgeBot</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <nav id="navbar"></nav>
     <div id="login-container" class="login-container">
-        <h1>Login</h1>
-        <input type="text" id="username" class="input-field" placeholder="Usuário" required>
-        <input type="password" id="password" class="input-field" placeholder="Senha" required>
+        <h1>Login de Usuário</h1>
+        <input type="text" id="username" class="input-field" placeholder="Nome de usuário" required autocomplete="username">
+        <input type="password" id="password" class="input-field" placeholder="Senha" required autocomplete="current-password">
         <button id="login-btn" class="btn" style="width: 100%;">Entrar</button>
-        <div id="login-status" class="status-message hidden"></div>
-        <p style="margin-top: 15px;">Não tem uma conta? <a href="register.html">Registre-se</a></p>
+        <div id="status-message" class="status-message hidden"></div>
+        <p style="margin-top: 15px;">Não tem uma conta? <a href="register.html" style="color: var(--primary-color);">Registre-se aqui</a></p>
     </div>
     <script src="auth.js"></script>
     <script>
-        const loginBtn = document.getElementById('login-btn');
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-        const statusDiv = document.getElementById('login-status');
-        
-        loginBtn.addEventListener('click', async () => {
-            const res = await fetch('https://chatbot-liau.onrender.com/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: usernameInput.value, password: passwordInput.value })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('username', data.username);
-                window.location.href = 'index.html';
-            } else {
-                statusDiv.textContent = data.message;
-                statusDiv.className = 'status-message status-error';
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginBtn = document.getElementById('login-btn');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const statusDiv = document.getElementById('status-message');
+            const API_URL = 'https://chatbot-liau.onrender.com/api/auth/login';
+
+            async function handleLogin() {
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value.trim();
+
+                if (!username || !password) {
+                    showStatus('Por favor, preencha todos os campos.', true);
+                    return;
+                }
+                
+                loginBtn.disabled = true;
+                loginBtn.textContent = 'Entrando...';
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Erro desconhecido');
+                    }
+                    
+                    // Sucesso! Salva o token e redireciona
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('username', data.username);
+                    window.location.href = 'index.html';
+
+                } catch (error) {
+                    showStatus(error.message, true);
+                } finally {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Entrar';
+                }
             }
+
+            function showStatus(message, isError = false) {
+                statusDiv.textContent = message;
+                statusDiv.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
+                statusDiv.classList.remove('hidden');
+            }
+
+            loginBtn.addEventListener('click', handleLogin);
+            passwordInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
+            usernameInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
         });
     </script>
 </body>
