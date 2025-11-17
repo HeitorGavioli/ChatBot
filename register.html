@@ -3,31 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - JorgeBot</title>
+    <title>Registro - JorgeBot</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <nav id="navbar"></nav>
-    <div id="login-container" class="login-container">
-        <h1>Login de Usuário</h1>
-        <input type="text" id="username" class="input-field" placeholder="Nome de usuário" required autocomplete="username">
-        <input type="password" id="password" class="input-field" placeholder="Senha" required autocomplete="current-password">
-        <button id="login-btn" class="btn" style="width: 100%;">Entrar</button>
+    <div id="register-container" class="login-container">
+        <h1>Crie sua Conta</h1>
+        <input type="text" id="username" class="input-field" placeholder="Escolha um nome de usuário" required autocomplete="username">
+        <input type="password" id="password" class="input-field" placeholder="Crie uma senha" required autocomplete="new-password">
+        <button id="register-btn" class="btn" style="width: 100%;">Registrar</button>
         <div id="status-message" class="status-message hidden"></div>
-        <p style="margin-top: 15px;">Não tem uma conta? <a href="register.html" style="color: var(--primary-color);">Registre-se aqui</a></p>
+        <p style="margin-top: 15px;">Já tem uma conta? <a href="login.html" style="color: var(--primary-color);">Faça login</a></p>
     </div>
     <script src="auth.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const loginBtn = document.getElementById('login-btn');
+            const registerBtn = document.getElementById('register-btn');
             const usernameInput = document.getElementById('username');
             const passwordInput = document.getElementById('password');
             const statusDiv = document.getElementById('status-message');
-            const API_URL = 'https://chatbot-liau.onrender.com/api/auth/login';
+            const API_URL = 'https://chatbot-liau.onrender.com/api/auth/register';
 
-            async function handleLogin() {
-                const username = usernameInput.value.trim();
+            async function handleRegister() {
+                 const username = usernameInput.value.trim();
                 const password = passwordInput.value.trim();
 
                 if (!username || !password) {
@@ -35,8 +35,8 @@
                     return;
                 }
                 
-                loginBtn.disabled = true;
-                loginBtn.textContent = 'Entrando...';
+                registerBtn.disabled = true;
+                registerBtn.textContent = 'Registrando...';
 
                 try {
                     const response = await fetch(API_URL, {
@@ -51,16 +51,16 @@
                         throw new Error(data.message || 'Erro desconhecido');
                     }
                     
-                    // Sucesso! Salva o token e redireciona
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('username', data.username);
-                    window.location.href = 'index.html';
+                    showStatus('Registro bem-sucedido! Redirecionando para o login...', false);
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
 
                 } catch (error) {
                     showStatus(error.message, true);
                 } finally {
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = 'Entrar';
+                    registerBtn.disabled = false;
+                    registerBtn.textContent = 'Registrar';
                 }
             }
 
@@ -70,9 +70,9 @@
                 statusDiv.classList.remove('hidden');
             }
 
-            loginBtn.addEventListener('click', handleLogin);
-            passwordInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
-            usernameInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
+            registerBtn.addEventListener('click', handleRegister);
+            passwordInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleRegister());
+            usernameInput.addEventListener('keypress', (e) => e.key === 'Enter' && handleRegister());
         });
     </script>
 </body>
