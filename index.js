@@ -2,14 +2,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatLog = document.getElementById('chat-log');
     const userInput = document.getElementById('user-input');
     const sendButton = document.getElementById('send-button');
-
     const chatUrl = 'https://chatbot-liau.onrender.com/chat';
+    
     let chatHistory = [];
 
     function addMessageToLog(message, sender) {
         const p = document.createElement('p');
         p.textContent = message;
-        p.className = `${sender}-message`;
+        p.className = `${sender}-message`; // Use classes simples para estilização
         chatLog.appendChild(p);
         chatLog.scrollTop = chatLog.scrollHeight;
     }
@@ -21,24 +21,27 @@ document.addEventListener('DOMContentLoaded', () => {
         sendButton.disabled = true;
         addMessageToLog("Digitando...", 'bot');
 
-        const token = localStorage.getItem('token'); // Pega o token do storage
+        const token = localStorage.getItem('token');
         const headers = { 'Content-Type': 'application/json' };
         if (token) {
-            headers['Authorization'] = `Bearer ${token}`; // Adiciona o token ao cabeçalho
+            headers['Authorization'] = `Bearer ${token}`; // Anexa o token se ele existir
         }
 
         try {
             const response = await fetch(chatUrl, {
                 method: 'POST',
-                headers: headers, // Usa os cabeçalhos com o token
-                body: JSON.stringify({ mensagem: message, historico: chatHistory.slice(0, -1) })
+                headers: headers,
+                body: JSON.stringify({ 
+                    mensagem: message,
+                    historico: chatHistory.slice(0, -1) 
+                })
             });
 
-            chatLog.removeChild(chatLog.lastChild);
+            chatLog.removeChild(chatLog.lastChild); // Remove "Digitando..."
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.erro || `Erro: ${response.status}`);
+                throw new Error(errorData.erro || `Erro no servidor: ${response.status}`);
             }
 
             const data = await response.json();
@@ -49,20 +52,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatLog.lastChild?.textContent === "Digitando...") {
                 chatLog.removeChild(chatLog.lastChild);
             }
-            addMessageToLog(`Desculpe, erro: ${error.message}`, 'error');
-            chatHistory.pop();
+            addMessageToLog(`Desculpe, ocorreu um erro: ${error.message}`, 'error');
+            chatHistory.pop(); // Remove a mensagem do usuário do histórico se deu erro
         } finally {
             sendButton.disabled = false;
             userInput.focus();
         }
     }
-
+    
     sendButton.addEventListener('click', () => {
         const message = userInput.value.trim();
         if (message) sendMessageToBackend(message);
     });
 
-    userInput.addEventListener('keypress', e => e.key === 'Enter' && sendButton.click());
+    userInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendButton.click();
+        }
+    });
 
-    addMessageToLog("Olá! Eu sou o JorgeBot. Como posso te ajudar?", 'bot');
+    addMessageToLog("Olá! Eu sou o Jorge. Como posso te ajudar hoje?", 'bot');
 });
