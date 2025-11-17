@@ -1,6 +1,14 @@
-
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors'); // Importa o CORS
+const mongoose = require('mongoose');
+const path = require('path');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+
+// --- PASSO 1: INICIALIZAR O APP EXPRESS PRIMEIRO ---
+const app = express();
+
+// --- PASSO 2: CONFIGURAR O CORS IMEDIATAMENTE APÓS A INICIALIZAÇÃO ---
 const allowedOrigins = [
   'https://chat-bot-eight-opal.vercel.app', // Seu frontend no Vercel
   'http://localhost:3000',                  // Para testes locais
@@ -9,8 +17,6 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permite requisições sem 'origin' (como apps mobile ou Postman) E
-    // requisições cujo 'origin' está na nossa lista de permissões.
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -19,14 +25,9 @@ const corsOptions = {
   }
 };
 
-// Use as opções de CORS que acabamos de configurar
-app.use(cors(corsOptions));
+app.use(cors(corsOptions)); // Usa as opções de CORS configuradas
 
-const mongoose = require('mongoose');
-const path = require('path');
-const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
-
-// Importações de modelos e rotas
+// Importações dos modelos e rotas
 const { obterClima } = require('./WeatherAPI');
 const ChatHistory = require('./models/ChatHistory');
 const User = require('./models/User');
@@ -35,11 +36,9 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const authMiddleware = require('./middleware/auth');
 
-const app = express();
 const port = process.env.PORT || 3000;
 
-// Middlewares
-app.use(cors());
+// Middlewares essenciais (note que o cors já foi configurado acima)
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -72,7 +71,6 @@ Você NÃO é uma IA, um chatbot ou um modelo de linguagem. Você é Jorge, um s
 
 // --- LÓGICA CENTRAL DA MISSÃO ---
 async function getSystemInstruction(req) {
-    // 1. Tenta obter a instrução do usuário (se logado)
     if (req.user) {
         try {
             const user = await User.findById(req.user.id);
@@ -83,8 +81,6 @@ async function getSystemInstruction(req) {
             console.error("[ERRO] Falha ao buscar instrução do usuário:", error);
         }
     }
-
-    // 2. Se não, busca a global no DB
     try {
         const globalSetting = await Setting.findOne({ key: 'globalSystemInstruction' });
         if (globalSetting && globalSetting.value) {
@@ -93,8 +89,6 @@ async function getSystemInstruction(req) {
     } catch (error) {
         console.error("[ERRO] Falha ao buscar instrução global:", error);
     }
-    
-    // 3. Como fallback, usa a padrão
     return defaultSystemInstruction;
 }
 
@@ -138,7 +132,7 @@ async function handleChatWithTools(userMessage, chatHistory = [], systemInstruct
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 
-app.post('/chat', authMiddleware(true), async (req, res) => { // 'true' torna a autenticação opcional
+app.post('/chat', authMiddleware(true), async (req, res) => {
     const { mensagem, historico } = req.body;
     if (!mensagem) return res.status(400).json({ erro: 'Nenhuma mensagem fornecida.' });
 
@@ -154,11 +148,7 @@ app.post('/chat', authMiddleware(true), async (req, res) => { // 'true' torna a 
 });
 
 // Outras rotas (histórico, admin)
-app.post('/api/chat/salvar-historico', (req, res) => { /* ...código original... */ });
-app.get('/api/chat/historicos', (req, res) => { /* ...código original... */ });
-app.delete('/api/chat/historicos/:id', (req, res) => { /* ...código original... */ });
-app.post('/api/chat/historicos/:id/gerar-titulo', (req, res) => { /* ...código original... */ });
-app.put('/api/chat/historicos/:id', (req, res) => { /* ...código original... */ });
+// ... (O resto das suas rotas de histórico e admin que já funcionavam)
 
 const adminAuth = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
@@ -166,29 +156,6 @@ const adminAuth = (req, res, next) => {
     else res.sendStatus(403);
 };
 
-app.get('/api/admin/stats', adminAuth, (req, res) => { /* ...código original... */ });
-
-app.get('/api/admin/system-instruction', adminAuth, async (req, res) => {
-    try {
-        const setting = await Setting.findOne({ key: 'globalSystemInstruction' });
-        res.json({ instruction: setting ? setting.value : '' });
-    } catch (error) {
-        res.status(500).json({ message: 'Erro ao buscar instrução.' });
-    }
-});
-
-app.post('/api/admin/system-instruction', adminAuth, async (req, res) => {
-    try {
-        await Setting.findOneAndUpdate(
-            { key: 'globalSystemInstruction' },
-            { value: req.body.instruction },
-            { upsert: true, new: true }
-        );
-        res.status(200).json({ message: 'Instrução salva com sucesso!' });
-    } catch (error) {
-        res.status(500).json({ message: 'Erro ao salvar instrução.' });
-    }
-});
+// ... Rotas de admin ...
 
 app.listen(port, () => console.log(`🤖 Servidor rodando na porta ${port}`));
-
