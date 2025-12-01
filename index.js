@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
             addMessageToLog(data.resposta, 'bot');
-            chatHistory.push({ role: 'model', content: data.resposta });
+            chatHistory.push({ role: 'bot', content: data.resposta });
 
         } catch (error) {
             if (chatLog.lastChild?.textContent === "Digitando...") {
@@ -74,3 +74,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     addMessageToLog("Olá! Eu sou o Jorge. Como posso te ajudar hoje?", 'bot');
 });
+
