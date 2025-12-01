@@ -150,12 +150,81 @@ app.post('/chat', authMiddleware(true), async (req, res) => {
 // Outras rotas (histórico, admin)
 // ... (O resto das suas rotas de histórico e admin que já funcionavam)
 
-const adminAuth = (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1];
-    if (token === process.env.ADMIN_PASSWORD) next();
-    else res.sendStatus(403);
-};
+app.get('/api/admin/stats', adminAuth, async (req, res) => {
+    try {
+        const stats = await ChatHistory.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalConversations: { $sum: 1 },
+                    totalMessages: { $sum: { $size: "$messages" } },
+                    totalErrors: { 
+                        $sum: { 
+                            $size: { 
+                                $filter: { 
+                                    input: "$messages", 
+                                    as: "msg", 
+                                    cond: { $eq: ["$$msg.role", "error"] } 
+                                } 
+                            } 
+                        } 
+                    },
+                    averageDuration: { 
+                        $avg: { 
+                            $cond: [
+                                { $ne: ["$endTime", null] },
+                                { $subtract: ["$endTime", "$startTime"] },
+                                null
+                            ]
+                        } 
+                    }
+                }
+            }
+        ]);
+
+        const conversations = await ChatHistory.find()
+            .sort({ startTime: -1 })
+            .limit(5)
+            .select('title startTime messages');
+
+        res.json({
+            totalConversations: stats[0]?.totalConversations || 0,
+            totalMessages: stats[0]?.totalMessages || 0,
+            totalErrors: stats[0]?.totalErrors || 0,
+            averageConversationDuration: stats[0]?.averageDuration ? Math.round(stats[0].averageDuration / 1000) : 0,
+            recentConversations: conversations
+        });
+    } catch (error) {
+        console.error("Erro ao calcular estatísticas:", error);
+        res.status(500).json({ error: "Erro interno ao calcular estatísticas" });
+    }
+});
+
+app.get('/api/admin/system-instruction', adminAuth, async (req, res) => {
+    try {
+        const setting = await Setting.findOne({ key: 'globalSystemInstruction' });
+        res.json({ instruction: setting?.value || '' });
+    } catch (error) {
+        console.error("Erro ao buscar instrução:", error);
+        res.status(500).json({ error: "Erro interno" });
+    }
+});
+
+app.post('/api/admin/system-instruction', adminAuth, async (req, res) => {
+    try {
+        await Setting.findOneAndUpdate(
+            { key: 'globalSystemInstruction' },
+            { value: req.body.instruction },
+            { upsert: true, new: true }
+        );
+        res.json({ message: "Instrução atualizada com sucesso!" });
+    } catch (error) {
+        console.error("Erro ao salvar instrução:", error);
+        res.status(500).json({ error: "Erro interno ao salvar instrução" });
+    }
+});
 
 // ... Rotas de admin ...
 
 app.listen(port, () => console.log(`🤖 Servidor rodando na porta ${port}`));
+
