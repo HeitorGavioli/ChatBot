@@ -149,7 +149,11 @@ app.post('/chat', authMiddleware(true), async (req, res) => {
 
 // Outras rotas (histórico, admin)
 // ... (O resto das suas rotas de histórico e admin que já funcionavam)
-
+const adminAuth = (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (token === process.env.ADMIN_PASSWORD) next();
+    else res.sendStatus(403);
+};
 app.get('/api/admin/stats', adminAuth, async (req, res) => {
     try {
         const stats = await ChatHistory.aggregate([
@@ -227,4 +231,5 @@ app.post('/api/admin/system-instruction', adminAuth, async (req, res) => {
 // ... Rotas de admin ...
 
 app.listen(port, () => console.log(`🤖 Servidor rodando na porta ${port}`));
+
 
