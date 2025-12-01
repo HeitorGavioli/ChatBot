@@ -21,16 +21,23 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    console.log('Tentativa de login para:', username); // ← Adicione este log
+    
     try {
         const user = await User.findOne({ username });
+        console.log('Usuário encontrado:', user ? 'Sim' : 'Não'); // ← Adicione este log
+        
         if (!user || !await bcrypt.compare(password, user.password)) {
+            console.log('Credenciais inválidas'); // ← Adicione este log
             return res.status(400).json({ message: 'Credenciais inválidas.' });
         }
+        
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        console.log('Login bem-sucedido, token gerado'); // ← Adicione este log
         res.json({ token, username: user.username });
     } catch (error) {
+        console.error('Erro no login:', error); // ← Adicione este log
         res.status(500).json({ message: 'Erro no servidor.' });
     }
 });
-
 module.exports = router;
