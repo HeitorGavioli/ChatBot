@@ -100,7 +100,7 @@ function obterHorarioAtual() {
 
 async function handleChatWithTools(userMessage, chatHistory = [], systemInstruction) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-pro",
         tools,
         safetySettings,
         systemInstruction,
@@ -231,5 +231,6 @@ app.post('/api/admin/system-instruction', adminAuth, async (req, res) => {
 // ... Rotas de admin ...
 
 app.listen(port, () => console.log(`🤖 Servidor rodando na porta ${port}`));
+
 
 
